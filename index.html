@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<!--
+  Bases de Hepatología — web app
+  Versión: 2026-10-12 20:28 ARG
+  Requiere: supabase_bases_hepato.sql ejecutado en el proyecto Supabase.
+  Configurar CONFIG (más abajo) con la URL y la anon key del proyecto.
+-->
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Bases de Hepatología</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --tinta:#1f2b33; --tinta-2:#4d5c66; --tinta-3:#7d8a92;
+  --papel:#f5f7f6; --blanco:#ffffff; --linea:#d6dedb; --linea-2:#e8eeeb;
+  --verde:#2f6f6a; --verde-claro:#e3efed;
+  --ambar:#c58a1a; --ambar-claro:#fbf1dc;
+  --rojo:#b23b2e; --rojo-claro:#f8e6e3;
+  --carpeta:#e9dcbc; --carpeta-borde:#cdbb8f;
+  --radio:6px;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --cond:"IBM Plex Sans Condensed","IBM Plex Sans",system-ui,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%;margin:0}
+body{font:14px/1.45 var(--sans);color:var(--tinta);background:var(--papel);font-variant-numeric:tabular-nums}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--ambar);outline-offset:2px}
+[hidden]{display:none!important}
+
+/* Botones */
+.btn{border:1px solid var(--linea);background:var(--blanco);border-radius:var(--radio);padding:6px 12px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--tinta-3)}
+.btn.primario{background:var(--verde);border-color:var(--verde);color:#fff}
+.btn.primario:hover{background:#265b57}
+.btn.peligro{color:var(--rojo);border-color:#e5c4bf}
+.btn.peligro:hover{background:var(--rojo-claro)}
+.btn.chico{padding:3px 8px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:default}
+
+/* Login */
+#vista-login{min-height:100%;display:grid;place-items:center;padding:24px}
+.login{width:100%;max-width:360px;background:var(--blanco);border:1px solid var(--linea);border-radius:10px;padding:28px}
+.login h1{font:600 22px/1.2 var(--cond);margin:0 0 4px}
+.login p{margin:0 0 20px;color:var(--tinta-2)}
+.campo{display:block;margin-bottom:14px}
+.campo span{display:block;font-size:13px;color:var(--tinta-2);margin-bottom:4px}
+.campo input{width:100%;padding:9px 10px;border:1px solid var(--linea);border-radius:var(--radio);background:var(--blanco)}
+.login .btn{width:100%;padding:10px}
+.error{color:var(--rojo);font-size:13px;min-height:18px;margin-top:8px}
+
+/* App */
+#vista-app{height:100%;display:grid;grid-template-rows:auto 1fr;grid-template-columns:260px 1fr}
+header.barra{grid-column:1/-1;display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--tinta);color:#fff}
+header.barra h1{font:600 18px/1 var(--cond);margin:0;flex:1}
+header.barra .usuario{font-size:13px;color:#b9c6cc}
+header.barra .btn{background:transparent;border-color:#53636d;color:#fff}
+header.barra .btn:hover{background:#2c3b45}
+header.barra .btn.primario{background:var(--ambar);border-color:var(--ambar);color:#1f2b33}
+
+aside.lateral{border-right:1px solid var(--linea);background:var(--blanco);overflow:auto;padding:12px 0}
+.lateral h2{font:600 13px/1 var(--sans);color:var(--tinta-3);margin:4px 16px 8px}
+.lateral input{margin:0 12px 10px;width:calc(100% - 24px);padding:6px 9px;border:1px solid var(--linea);border-radius:var(--radio)}
+.base-item{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;border:0;background:none;padding:8px 16px;cursor:pointer;border-left:3px solid transparent}
+.base-item:hover{background:var(--papel)}
+.base-item.activa{background:var(--verde-claro);border-left-color:var(--verde);font-weight:600}
+.base-item small{color:var(--tinta-3);font-weight:400}
+.vacio-lateral{padding:8px 16px;color:var(--tinta-3)}
+
+main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.cabecera-base{display:flex;align-items:center;gap:8px;padding:14px 18px 0}
+.cabecera-base h2{font:600 20px/1.2 var(--cond);margin:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Pestañas tipo carpeta de historia clínica */
+.pestanas{display:flex;gap:2px;padding:12px 18px 0;overflow-x:auto;border-bottom:1px solid var(--carpeta-borde)}
+.pestana{position:relative;border:1px solid var(--carpeta-borde);border-bottom:0;background:#f3ecd9;padding:7px 16px 6px;border-radius:8px 8px 0 0;cursor:pointer;white-space:nowrap;color:var(--tinta-2);top:1px}
+.pestana:hover{background:var(--carpeta)}
+.pestana.activa{background:var(--carpeta);color:var(--tinta);font-weight:600;padding-bottom:7px;z-index:1}
+.pestana small{color:var(--tinta-3);font-weight:400;margin-left:6px}
+
+.herramientas{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 18px;background:var(--carpeta);border-bottom:1px solid var(--carpeta-borde)}
+.herramientas input[type=search]{flex:1;min-width:180px;max-width:360px;padding:6px 10px;border:1px solid var(--carpeta-borde);border-radius:var(--radio);background:#fffdf7}
+.contador{color:var(--tinta-2);font-size:13px;margin-left:auto}
+
+.tabla-wrap{flex:1;overflow:auto;background:var(--blanco)}
+table{border-collapse:separate;border-spacing:0;font-size:13px;min-width:100%}
+thead th{position:sticky;top:0;z-index:2;background:#eef2f0;border-bottom:1px solid var(--linea);border-right:1px solid var(--linea-2);text-align:left;font-weight:600;padding:0;white-space:nowrap}
+th .th-in{display:flex;align-items:center;gap:4px;padding:7px 8px}
+th .th-nombre{cursor:pointer;flex:1}
+th .th-menu{border:0;background:none;cursor:pointer;color:var(--tinta-3);padding:0 4px;border-radius:4px}
+th .th-menu:hover{background:var(--linea)}
+th.num,td.num{position:sticky;left:0;z-index:1;background:#f6f8f7;color:var(--tinta-3);text-align:right;min-width:44px;padding:5px 8px;border-right:1px solid var(--linea)}
+thead th.num{z-index:3}
+td{border-bottom:1px solid var(--linea-2);border-right:1px solid var(--linea-2);padding:5px 8px;max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:top}
+td[contenteditable=true]{white-space:pre-wrap;overflow:visible;max-width:none;background:var(--ambar-claro);outline:2px solid var(--ambar);outline-offset:-2px}
+tbody tr:hover td{background:#f9fbfa}
+tbody tr:hover td.num{background:#eef2f0}
+td.acciones{position:sticky;right:0;background:var(--blanco);width:36px;padding:2px 4px;text-align:center}
+td.acciones button{opacity:0;border:0;background:none;cursor:pointer;color:var(--rojo);padding:3px 6px;border-radius:4px}
+tr:hover td.acciones button,td.acciones button:focus-visible{opacity:1}
+td.acciones button:hover{background:var(--rojo-claro)}
+.guardado{animation:guardado 1.2s ease-out}
+@keyframes guardado{from{background:var(--verde-claro)}to{background:transparent}}
+mark{background:var(--ambar-claro);color:inherit;padding:0}
+
+.estado-vacio{margin:auto;max-width:440px;text-align:center;padding:40px 20px;color:var(--tinta-2)}
+.estado-vacio h3{font:600 18px/1.3 var(--cond);color:var(--tinta);margin:0 0 8px}
+
+/* Menú contextual de columna */
+.menu{position:fixed;z-index:50;background:var(--blanco);border:1px solid var(--linea);border-radius:var(--radio);box-shadow:0 6px 18px rgba(31,43,51,.14);padding:4px;min-width:170px}
+.menu button{display:block;width:100%;text-align:left;border:0;background:none;padding:7px 10px;border-radius:4px;cursor:pointer}
+.menu button:hover{background:var(--papel)}
+.menu button.peligro{color:var(--rojo)}
+
+/* Diálogos */
+dialog{border:1px solid var(--linea);border-radius:10px;padding:0;max-width:min(560px,94vw);width:100%;color:var(--tinta)}
+dialog::backdrop{background:rgba(31,43,51,.45)}
+.dlg-cab{padding:16px 20px 0}
+.dlg-cab h3{font:600 18px/1.2 var(--cond);margin:0}
+.dlg-cuerpo{padding:14px 20px;max-height:60vh;overflow:auto}
+.dlg-pie{display:flex;justify-content:flex-end;gap:8px;padding:12px 20px 16px;border-top:1px solid var(--linea-2)}
+.hoja-import{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--linea-2)}
+.hoja-import small{color:var(--tinta-3);margin-left:auto}
+.progreso{height:8px;background:var(--linea-2);border-radius:4px;overflow:hidden;margin-top:12px}
+.progreso div{height:100%;width:0;background:var(--verde);transition:width .2s}
+.nota{font-size:13px;color:var(--tinta-2)}
+
+/* Avisos */
+#aviso{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--tinta);color:#fff;padding:9px 16px;border-radius:var(--radio);font-size:13px;z-index:100;max-width:90vw}
+#aviso.error{background:var(--rojo)}
+
+/* Móvil */
+.btn-menu-bases{display:none}
+@media (max-width:820px){
+  #vista-app{grid-template-columns:1fr}
+  aside.lateral{position:fixed;inset:0 auto 0 0;width:min(300px,86vw);z-index:40;transform:translateX(-100%);transition:transform .2s;box-shadow:4px 0 18px rgba(0,0,0,.15);padding-top:calc(12px + env(safe-area-inset-top,0px))}
+  aside.lateral.abierta{transform:none}
+  .btn-menu-bases{display:inline-block}
+  header.barra .usuario{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<section id="vista-login" hidden>
+  <form class="login" id="form-login" autocomplete="on">
+    <h1>Bases de Hepatología</h1>
+    <p>Ingresá con el correo y la clave del servicio.</p>
+    <label class="campo"><span>Correo</span><input type="email" id="login-email" required autocomplete="username"></label>
+    <label class="campo"><span>Clave</span><input type="password" id="login-clave" required autocomplete="current-password"></label>
+    <button class="btn primario" type="submit" id="btn-ingresar">Ingresar</button>
+    <div class="error" id="login-error" role="alert"></div>
+  </form>
+</section>
+
+<!-- ============ APP ============ -->
+<div id="vista-app" hidden>
+  <header class="barra">
+    <button class="btn btn-menu-bases" id="btn-menu-bases" aria-label="Ver bases">☰</button>
+    <h1>Bases de Hepatología</h1>
+    <span class="usuario" id="usuario-actual"></span>
+    <button class="btn primario" id="btn-importar">Importar Excel</button>
+    <button class="btn" id="btn-salir">Salir</button>
+  </header>
+
+  <aside class="lateral" id="lateral">
+    <h2>Bases</h2>
+    <input type="search" id="buscar-base" placeholder="Filtrar bases" aria-label="Filtrar bases">
+    <nav id="lista-bases"></nav>
+  </aside>
+
+  <main id="principal">
+    <div class="estado-vacio" id="sin-bases" hidden>
+      <h3>Todavía no hay bases cargadas</h3>
+      <p>Descargá cada planilla del Drive como Excel (.xlsx) e importala. Cada pestaña del Excel queda como una pestaña acá.</p>
+      <button class="btn primario" id="btn-importar-vacio">Importar Excel</button>
+    </div>
+
+    <div id="panel-base" hidden style="display:flex;flex-direction:column;flex:1;min-height:0">
+      <div class="cabecera-base">
+        <h2 id="titulo-base"></h2>
+        <button class="btn chico" id="btn-exportar">Descargar Excel</button>
+        <button class="btn chico" id="btn-renombrar-base">Renombrar</button>
+        <button class="btn chico peligro" id="btn-eliminar-base">Eliminar base</button>
+      </div>
+      <div class="pestanas" id="pestanas" role="tablist"></div>
+      <div class="herramientas">
+        <input type="search" id="buscar" placeholder="Buscar en esta pestaña" aria-label="Buscar en esta pestaña">
+        <button class="btn chico" id="btn-nueva-fila">Agregar fila</button>
+        <button class="btn chico" id="btn-nueva-columna">Agregar columna</button>
+        <button class="btn chico" id="btn-hoja-menu">Pestaña…</button>
+        <span class="contador" id="contador"></span>
+      </div>
+      <div class="tabla-wrap" id="tabla-wrap"></div>
+    </div>
+  </main>
+</div>
+
+<!-- ============ DIÁLOGO IMPORTAR ============ -->
+<dialog id="dlg-importar">
+  <div class="dlg-cab"><h3>Importar Excel</h3></div>
+  <div class="dlg-cuerpo">
+    <label class="campo"><span>Archivo (.xlsx, .xls o .csv)</span><input type="file" id="imp-archivo" accept=".xlsx,.xls,.csv"></label>
+    <div id="imp-detalle" hidden>
+      <label class="campo"><span>Nombre de la base</span><input type="text" id="imp-nombre"></label>
+      <p class="nota">Pestañas encontradas. Destildá las que no quieras importar.</p>
+      <div id="imp-hojas"></div>
+      <p class="nota" id="imp-aviso"></p>
+    </div>
+    <div class="progreso" id="imp-progreso" hidden><div></div></div>
+    <p class="nota" id="imp-estado"></p>
+  </div>
+  <div class="dlg-pie">
+    <button class="btn" id="imp-cancelar">Cancelar</button>
+    <button class="btn primario" id="imp-confirmar" disabled>Importar</button>
+  </div>
+</dialog>
+
+<!-- ============ DIÁLOGO GENÉRICO ============ -->
+<dialog id="dlg">
+  <form method="dialog">
+    <div class="dlg-cab"><h3 id="dlg-titulo"></h3></div>
+    <div class="dlg-cuerpo">
+      <p id="dlg-texto" class="nota"></p>
+      <input type="text" id="dlg-input" style="width:100%;padding:8px 10px;border:1px solid var(--linea);border-radius:var(--radio)">
+    </div>
+    <div class="dlg-pie">
+      <button class="btn" value="cancelar">Cancelar</button>
+      <button class="btn primario" value="ok" id="dlg-ok">Aceptar</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="aviso" hidden role="status"></div>
+
+<script>
+/* =====================================================================
+   CONFIG — completar con los datos del proyecto Supabase
+   ===================================================================== */
+const CONFIG = {
+  SUPABASE_URL: 'https://jachvwlicngmrcmnjvil.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImphY2h2d2xpY25nbXJjbW5qdmlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4NDYxNTgsImV4cCI6MjEwNzQyMjE1OH0.O-WGz6YiOt_octemxweAeEaxd4wzjcllfDNAcFQroy4',
+  MINUTOS_INACTIVIDAD: 30,   // cierra la sesión sola si nadie la usa
+  LOTE_IMPORTACION: 500
+};
+
+/* La sesión vive solo en esta pestaña del navegador (sessionStorage):
+   al cerrar la pestaña, hay que volver a ingresar. */
+const sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
+  auth: { storage: window.sessionStorage, persistSession: true, autoRefreshToken: true }
+});
+
+const $ = s => document.querySelector(s);
+const estado = {
+  bases: [], hojas: [], filas: [],
+  baseId: null, hojaId: null,
+  orden: { col: null, asc: true },
+  filtro: ''
+};
+
+/* ---------------- Utilidades ---------------- */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const normalizar = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+let avisoT;
+function aviso(msg, error = false) {
+  const a = $('#aviso'); a.textContent = msg; a.className = error ? 'error' : ''; a.hidden = false;
+  clearTimeout(avisoT); avisoT = setTimeout(() => a.hidden = true, error ? 6000 : 2600);
+}
+function fallo(e, contexto) {
+  console.error(contexto, e);
+  aviso(`${contexto}: ${e?.message || e}`, true);
+}
+function preguntar({ titulo, texto = '', valor = null, ok = 'Aceptar', peligro = false }) {
+  return new Promise(res => {
+    const d = $('#dlg');
+    $('#dlg-titulo').textContent = titulo;
+    $('#dlg-texto').textContent = texto;
+    const inp = $('#dlg-input');
+    inp.hidden = valor === null; inp.value = valor ?? '';
+    const bOk = $('#dlg-ok'); bOk.textContent = ok;
+    bOk.className = 'btn ' + (peligro ? 'peligro' : 'primario');
+    d.onclose = () => res(d.returnValue === 'ok' ? (valor === null ? true : inp.value.trim()) : null);
+    d.returnValue = ''; d.showModal();
+    if (valor !== null) { inp.focus(); inp.select(); }
+  });
+}
+
+/* ---------------- Sesión ---------------- */
+async function iniciar() {
+  const { data: { session } } = await sb.auth.getSession();
+  session ? mostrarApp(session) : mostrarLogin();
+  sb.auth.onAuthStateChange((ev, ses) => {
+    if (ev === 'SIGNED_OUT') mostrarLogin();
+  });
+}
+function mostrarLogin() {
+  $('#vista-app').hidden = true; $('#vista-login').hidden = false;
+  $('#login-clave').value = ''; $('#login-email').focus();
+}
+async function mostrarApp(session) {
+  $('#vista-login').hidden = true; $('#vista-app').hidden = false;
+  $('#usuario-actual').textContent = session.user.email;
+  reiniciarInactividad();
+  await cargarBases();
+}
+$('#form-login').addEventListener('submit', async e => {
+  e.preventDefault();
+  const b = $('#btn-ingresar'); b.disabled = true; $('#login-error').textContent = '';
+  const { data, error } = await sb.auth.signInWithPassword({
+    email: $('#login-email').value.trim(), password: $('#login-clave').value
+  });
+  b.disabled = false;
+  if (error) { $('#login-error').textContent = 'Correo o clave incorrectos.'; return; }
+  mostrarApp(data.session);
+});
+$('#btn-salir').onclick = () => sb.auth.signOut();
+
+let inactT;
+function reiniciarInactividad() {
+  clearTimeout(inactT);
+  inactT = setTimeout(async () => {
+    await sb.auth.signOut();
+    $('#login-error').textContent = 'La sesión se cerró por inactividad.';
+  }, CONFIG.MINUTOS_INACTIVIDAD * 60000);
+}
+['click', 'keydown', 'scroll', 'touchstart'].forEach(ev =>
+  document.addEventListener(ev, () => { if (!$('#vista-app').hidden) reiniciarInactividad(); }, { passive: true, capture: true }));
+
+/* ---------------- Bases ---------------- */
+async function cargarBases(seleccionar) {
+  const { data, error } = await sb.from('bases').select('id,nombre,origen,orden,hojas(count)').order('orden').order('nombre');
+  if (error) return fallo(error, 'No se pudieron cargar las bases');
+  estado.bases = data;
+  pintarBases();
+  const hay = data.length > 0;
+  $('#sin-bases').hidden = hay;
+  $('#panel-base').hidden = !hay;
+  if (!hay) return;
+  const id = seleccionar || (data.some(b => b.id === estado.baseId) ? estado.baseId : data[0].id);
+  await abrirBase(id);
+}
+function pintarBases() {
+  const f = normalizar($('#buscar-base').value);
+  const lista = estado.bases.filter(b => normalizar(b.nombre).includes(f));
+  $('#lista-bases').innerHTML = lista.length ? lista.map(b => `
+    <button class="base-item ${b.id === estado.baseId ? 'activa' : ''}" data-id="${b.id}">
+      <span>${esc(b.nombre)}</span><small>${b.hojas?.[0]?.count ?? 0}</small>
+    </button>`).join('') : '<div class="vacio-lateral">Sin resultados</div>';
+}
+$('#buscar-base').oninput = pintarBases;
+$('#lista-bases').onclick = e => {
+  const b = e.target.closest('.base-item'); if (!b) return;
+  abrirBase(b.dataset.id); $('#lateral').classList.remove('abierta');
+};
+$('#btn-menu-bases').onclick = () => $('#lateral').classList.toggle('abierta');
+
+async function abrirBase(id) {
+  estado.baseId = id;
+  const base = estado.bases.find(b => b.id === id);
+  $('#titulo-base').textContent = base?.nombre || '';
+  pintarBases();
+  const { data, error } = await sb.from('hojas').select('id,nombre,columnas,orden').eq('base_id', id).order('orden');
+  if (error) return fallo(error, 'No se pudieron cargar las pestañas');
+  estado.hojas = data;
+  const hojaId = data.some(h => h.id === estado.hojaId) ? estado.hojaId : data[0]?.id;
+  await abrirHoja(hojaId);
+}
+
+$('#btn-renombrar-base').onclick = async () => {
+  const b = estado.bases.find(x => x.id === estado.baseId);
+  const n = await preguntar({ titulo: 'Renombrar base', valor: b.nombre, ok: 'Guardar' });
+  if (!n || n === b.nombre) return;
+  const { error } = await sb.from('bases').update({ nombre: n }).eq('id', b.id);
+  if (error) return fallo(error, 'No se pudo renombrar');
+  aviso('Base renombrada'); cargarBases(b.id);
+};
+$('#btn-eliminar-base').onclick = async () => {
+  const b = estado.bases.find(x => x.id === estado.baseId);
+  const n = await preguntar({
+    titulo: 'Eliminar base',
+    texto: `Se borran "${b.nombre}" y todas sus pestañas y filas. Para confirmar, escribí el nombre exacto.`,
+    valor: '', ok: 'Eliminar', peligro: true
+  });
+  if (n === null) return;
+  if (n !== b.nombre) return aviso('El nombre no coincide. No se eliminó nada.', true);
+  const { error } = await sb.from('bases').delete().eq('id', b.id);
+  if (error) return fallo(error, 'No se pudo eliminar');
+  estado.baseId = null; estado.hojaId = null;
+  aviso('Base eliminada'); cargarBases();
+};
+
+/* ---------------- Hojas (pestañas) ---------------- */
+function pintarPestanas() {
+  $('#pestanas').innerHTML = estado.hojas.map(h => `
+    <button class="pestana ${h.id === estado.hojaId ? 'activa' : ''}" role="tab" aria-selected="${h.id === estado.hojaId}" data-id="${h.id}">
+      ${esc(h.nombre)}
+    </button>`).join('');
+}
+$('#pestanas').onclick = e => { const p = e.target.closest('.pestana'); if (p) abrirHoja(p.dataset.id); };
+
+async function abrirHoja(id) {
+  estado.hojaId = id; estado.filas = []; estado.orden = { col: null, asc: true };
+  $('#buscar').value = ''; estado.filtro = '';
+  pintarPestanas();
+  if (!id) { $('#tabla-wrap').innerHTML = '<div class="estado-vacio"><h3>Esta base no tiene pestañas</h3></div>'; $('#contador').textContent = ''; return; }
+  $('#tabla-wrap').innerHTML = '<div class="estado-vacio">Cargando…</div>';
+  const filas = []; const paso = 1000;
+  for (let desde = 0; ; desde += paso) {
+    const { data, error } = await sb.from('filas').select('id,orden,datos').eq('hoja_id', id)
+      .order('orden').range(desde, desde + paso - 1);
+    if (error) return fallo(error, 'No se pudieron cargar las filas');
+    filas.push(...data);
+    if (data.length < paso) break;
+  }
+  if (estado.hojaId !== id) return; // el usuario cambió de pestaña mientras cargaba
+  estado.filas = filas;
+  pintarTabla();
+}
+const hojaActual = () => estado.hojas.find(h => h.id === estado.hojaId);
+
+$('#btn-hoja-menu').onclick = e => {
+  abrirMenu(e.currentTarget, [
+    ['Renombrar pestaña', renombrarHoja],
+    ['Agregar pestaña nueva', nuevaHoja],
+    ['Eliminar pestaña', eliminarHoja, true]
+  ]);
+};
+async function renombrarHoja() {
+  const h = hojaActual();
+  const n = await preguntar({ titulo: 'Renombrar pestaña', valor: h.nombre, ok: 'Guardar' });
+  if (!n || n === h.nombre) return;
+  const { error } = await sb.from('hojas').update({ nombre: n }).eq('id', h.id);
+  if (error) return fallo(error, 'No se pudo renombrar');
+  h.nombre = n; pintarPestanas(); aviso('Pestaña renombrada');
+}
+async function nuevaHoja() {
+  const n = await preguntar({ titulo: 'Nueva pestaña', valor: 'Hoja nueva', ok: 'Crear' });
+  if (!n) return;
+  const orden = Math.max(-1, ...estado.hojas.map(h => h.orden)) + 1;
+  const { data, error } = await sb.from('hojas').insert({ base_id: estado.baseId, nombre: n, columnas: ['Columna 1'], orden }).select().single();
+  if (error) return fallo(error, 'No se pudo crear la pestaña');
+  estado.hojas.push(data); abrirHoja(data.id); cargarConteos();
+}
+async function eliminarHoja() {
+  const h = hojaActual();
+  const ok = await preguntar({ titulo: 'Eliminar pestaña', texto: `Se borra "${h.nombre}" con sus ${estado.filas.length} filas.`, ok: 'Eliminar', peligro: true });
+  if (!ok) return;
+  const { error } = await sb.from('hojas').delete().eq('id', h.id);
+  if (error) return fallo(error, 'No se pudo eliminar');
+  estado.hojas = estado.hojas.filter(x => x.id !== h.id);
+  aviso('Pestaña eliminada'); abrirHoja(estado.hojas[0]?.id); cargarConteos();
+}
+async function cargarConteos() {
+  const { data } = await sb.from('bases').select('id,nombre,origen,orden,hojas(count)').order('orden').order('nombre');
+  if (data) { estado.bases = data; pintarBases(); }
+}
+
+/* ---------------- Tabla ---------------- */
+function filasVisibles() {
+  const cols = hojaActual()?.columnas || [];
+  let filas = estado.filas;
+  const f = normalizar(estado.filtro);
+  if (f) filas = filas.filter(r => cols.some(c => normalizar(r.datos[c]).includes(f)));
+  const { col, asc } = estado.orden;
+  if (col) {
+    filas = [...filas].sort((a, b) => {
+      const x = a.datos[col] ?? '', y = b.datos[col] ?? '';
+      const nx = parseFloat(String(x).replace(',', '.')), ny = parseFloat(String(y).replace(',', '.'));
+      const r = (!isNaN(nx) && !isNaN(ny) && /^[\d.,\-\s]+$/.test(x) && /^[\d.,\-\s]+$/.test(y))
+        ? nx - ny : String(x).localeCompare(String(y), 'es', { sensitivity: 'base' });
+      return asc ? r : -r;
+    });
+  }
+  return filas;
+}
+function resaltar(texto) {
+  const t = esc(texto);
+  if (!estado.filtro) return t;
+  const f = normalizar(estado.filtro), n = normalizar(texto);
+  const i = n.indexOf(f);
+  if (i < 0) return t;
+  const s = String(texto);
+  return esc(s.slice(0, i)) + '<mark>' + esc(s.slice(i, i + f.length)) + '</mark>' + esc(s.slice(i + f.length));
+}
+function pintarTabla() {
+  const h = hojaActual(); if (!h) return;
+  const cols = h.columnas;
+  const filas = filasVisibles();
+  const flecha = c => estado.orden.col === c ? (estado.orden.asc ? ' ▲' : ' ▼') : '';
+  const cab = `<thead><tr><th class="num">#</th>${cols.map((c, i) => `
+    <th><div class="th-in"><span class="th-nombre" data-col="${i}" title="Ordenar">${esc(c)}${flecha(c)}</span>
+    <button class="th-menu" data-col="${i}" aria-label="Opciones de ${esc(c)}">⋯</button></div></th>`).join('')}<th></th></tr></thead>`;
+  const MAX = 3000;
+  const cuerpo = filas.slice(0, MAX).map((r, i) => `<tr data-id="${r.id}"><td class="num">${i + 1}</td>${
+    cols.map((c, j) => `<td data-col="${j}" title="${esc(r.datos[c])}">${resaltar(r.datos[c])}</td>`).join('')
+  }<td class="acciones"><button data-borrar="${r.id}" aria-label="Eliminar fila" title="Eliminar fila">✕</button></td></tr>`).join('');
+  $('#tabla-wrap').innerHTML = cols.length
+    ? `<table>${cab}<tbody>${cuerpo}</tbody></table>`
+    : '<div class="estado-vacio"><h3>Pestaña sin columnas</h3><p>Agregá una columna para empezar.</p></div>';
+  const total = estado.filas.length;
+  $('#contador').textContent = (filas.length === total ? `${total} filas` : `${filas.length} de ${total} filas`)
+    + (filas.length > MAX ? ` · se muestran las primeras ${MAX}, usá la búsqueda` : '');
+}
+let buscarT;
+$('#buscar').oninput = e => { clearTimeout(buscarT); buscarT = setTimeout(() => { estado.filtro = e.target.value.trim(); pintarTabla(); }, 180); };
+
+$('#tabla-wrap').addEventListener('click', e => {
+  const cols = hojaActual()?.columnas || [];
+  const nom = e.target.closest('.th-nombre');
+  if (nom) {
+    const c = cols[nom.dataset.col];
+    estado.orden = { col: c, asc: estado.orden.col === c ? !estado.orden.asc : true };
+    return pintarTabla();
+  }
+  const menu = e.target.closest('.th-menu');
+  if (menu) return menuColumna(menu, cols[menu.dataset.col]);
+  const borrar = e.target.closest('[data-borrar]');
+  if (borrar) return eliminarFila(borrar.dataset.borrar);
+});
+
+/* Edición: doble clic (o Enter con la celda enfocada) */
+$('#tabla-wrap').addEventListener('dblclick', e => {
+  const td = e.target.closest('td[data-col]'); if (td) editarCelda(td);
+});
+function editarCelda(td) {
+  if (td.isContentEditable) return;
+  const id = td.parentElement.dataset.id;
+  const col = hojaActual().columnas[td.dataset.col];
+  const fila = estado.filas.find(r => r.id === id);
+  const original = String(fila.datos[col] ?? '');
+  td.textContent = original;
+  td.contentEditable = 'true'; td.focus();
+  const sel = window.getSelection(); sel.selectAllChildren(td); sel.collapseToEnd();
+  const terminar = async guardar => {
+    td.removeEventListener('blur', alSalir); td.removeEventListener('keydown', teclas);
+    td.contentEditable = 'false';
+    const nuevo = td.innerText.replace(/\n$/, '');
+    if (!guardar || nuevo === original) { td.innerHTML = resaltar(original); return; }
+    td.innerHTML = resaltar(nuevo); td.title = nuevo;
+    const { error } = await sb.rpc('actualizar_celda', { p_fila: id, p_columna: col, p_valor: nuevo });
+    if (error) { td.innerHTML = resaltar(original); return fallo(error, 'No se guardó el cambio'); }
+    fila.datos[col] = nuevo;
+    td.classList.remove('guardado'); void td.offsetWidth; td.classList.add('guardado');
+  };
+  const alSalir = () => terminar(true);
+  const teclas = ev => {
+    if (ev.key === 'Escape') { ev.preventDefault(); terminar(false); }
+    else if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); td.blur(); }
+    else if (ev.key === 'Tab') {
+      ev.preventDefault();
+      const sig = ev.shiftKey ? td.previousElementSibling : td.nextElementSibling;
+      td.blur();
+      if (sig?.dataset.col !== undefined) editarCelda(sig);
+    }
+  };
+  td.addEventListener('blur', alSalir); td.addEventListener('keydown', teclas);
+}
+
+$('#btn-nueva-fila').onclick = async () => {
+  const h = hojaActual(); if (!h) return;
+  const orden = estado.filas.reduce((m, r) => Math.max(m, r.orden), 0) + 1;
+  const datos = Object.fromEntries(h.columnas.map(c => [c, '']));
+  const { data, error } = await sb.from('filas').insert({ hoja_id: h.id, orden, datos }).select('id,orden,datos').single();
+  if (error) return fallo(error, 'No se pudo agregar la fila');
+  estado.filas.push(data);
+  estado.filtro = ''; $('#buscar').value = ''; estado.orden = { col: null, asc: true };
+  pintarTabla();
+  const wrap = $('#tabla-wrap'); wrap.scrollTop = wrap.scrollHeight;
+  const td = wrap.querySelector(`tr[data-id="${data.id}"] td[data-col="0"]`);
+  if (td) editarCelda(td);
+};
+async function eliminarFila(id) {
+  const ok = await preguntar({ titulo: 'Eliminar fila', texto: 'La fila queda guardada en el historial por si hay que recuperarla.', ok: 'Eliminar', peligro: true });
+  if (!ok) return;
+  const { error } = await sb.from('filas').delete().eq('id', id);
+  if (error) return fallo(error, 'No se pudo eliminar la fila');
+  estado.filas = estado.filas.filter(r => r.id !== id);
+  pintarTabla(); aviso('Fila eliminada');
+}
+
+/* ---------------- Columnas ---------------- */
+$('#btn-nueva-columna').onclick = async () => {
+  const h = hojaActual(); if (!h) return;
+  const n = await preguntar({ titulo: 'Agregar columna', valor: '', ok: 'Agregar' });
+  if (!n) return;
+  if (h.columnas.includes(n)) return aviso('Ya existe una columna con ese nombre.', true);
+  const columnas = [...h.columnas, n];
+  const { error } = await sb.from('hojas').update({ columnas }).eq('id', h.id);
+  if (error) return fallo(error, 'No se pudo agregar la columna');
+  h.columnas = columnas; pintarTabla(); aviso('Columna agregada');
+};
+function menuColumna(boton, col) {
+  abrirMenu(boton, [
+    ['Ordenar A → Z', () => { estado.orden = { col, asc: true }; pintarTabla(); }],
+    ['Ordenar Z → A', () => { estado.orden = { col, asc: false }; pintarTabla(); }],
+    ['Mover a la izquierda', () => moverColumna(col, -1)],
+    ['Mover a la derecha', () => moverColumna(col, 1)],
+    ['Renombrar columna', () => renombrarColumna(col)],
+    ['Eliminar columna', () => eliminarColumna(col), true]
+  ]);
+}
+async function moverColumna(col, dir) {
+  const h = hojaActual(); const c = [...h.columnas]; const i = c.indexOf(col), j = i + dir;
+  if (j < 0 || j >= c.length) return;
+  [c[i], c[j]] = [c[j], c[i]];
+  const { error } = await sb.from('hojas').update({ columnas: c }).eq('id', h.id);
+  if (error) return fallo(error, 'No se pudo mover la columna');
+  h.columnas = c; pintarTabla();
+}
+async function renombrarColumna(col) {
+  const h = hojaActual();
+  const n = await preguntar({ titulo: 'Renombrar columna', valor: col, ok: 'Guardar' });
+  if (!n || n === col) return;
+  const { error } = await sb.rpc('renombrar_columna', { p_hoja: h.id, p_viejo: col, p_nuevo: n });
+  if (error) return fallo(error, 'No se pudo renombrar');
+  h.columnas = h.columnas.map(c => c === col ? n : c);
+  estado.filas.forEach(r => { if (col in r.datos) { r.datos[n] = r.datos[col]; delete r.datos[col]; } });
+  if (estado.orden.col === col) estado.orden.col = n;
+  pintarTabla(); aviso('Columna renombrada');
+}
+async function eliminarColumna(col) {
+  const ok = await preguntar({ titulo: 'Eliminar columna', texto: `Se borra "${col}" y su contenido en todas las filas de esta pestaña.`, ok: 'Eliminar', peligro: true });
+  if (!ok) return;
+  const h = hojaActual();
+  const { error } = await sb.rpc('eliminar_columna', { p_hoja: h.id, p_columna: col });
+  if (error) return fallo(error, 'No se pudo eliminar la columna');
+  h.columnas = h.columnas.filter(c => c !== col);
+  estado.filas.forEach(r => delete r.datos[col]);
+  pintarTabla(); aviso('Columna eliminada');
+}
+
+/* ---------------- Menú flotante ---------------- */
+function abrirMenu(ancla, opciones) {
+  cerrarMenu();
+  const m = document.createElement('div'); m.className = 'menu'; m.id = 'menu-flotante'; m.setAttribute('role', 'menu');
+  opciones.forEach(([txt, fn, peligro]) => {
+    const b = document.createElement('button'); b.textContent = txt; b.setAttribute('role', 'menuitem');
+    if (peligro) b.className = 'peligro';
+    b.onclick = () => { cerrarMenu(); fn(); };
+    m.appendChild(b);
+  });
+  document.body.appendChild(m);
+  const r = ancla.getBoundingClientRect();
+  m.style.top = Math.min(r.bottom + 4, innerHeight - m.offsetHeight - 8) + 'px';
+  m.style.left = Math.min(r.left, innerWidth - m.offsetWidth - 8) + 'px';
+  m.querySelector('button').focus();
+  setTimeout(() => document.addEventListener('click', cerrarMenuFuera, { once: true }));
+}
+function cerrarMenuFuera(e) { if (!e.target.closest('#menu-flotante')) cerrarMenu(); else document.addEventListener('click', cerrarMenuFuera, { once: true }); }
+function cerrarMenu() { $('#menu-flotante')?.remove(); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarMenu(); });
+
+/* ---------------- Exportar ---------------- */
+$('#btn-exportar').onclick = async () => {
+  const base = estado.bases.find(b => b.id === estado.baseId);
+  aviso('Preparando el Excel…');
+  const libro = XLSX.utils.book_new(); const usados = new Set();
+  for (const h of estado.hojas) {
+    const filas = [];
+    for (let desde = 0; ; desde += 1000) {
+      const { data, error } = await sb.from('filas').select('datos').eq('hoja_id', h.id).order('orden').range(desde, desde + 999);
+      if (error) return fallo(error, 'No se pudo exportar');
+      filas.push(...data); if (data.length < 1000) break;
+    }
+    const aoa = [h.columnas, ...filas.map(r => h.columnas.map(c => r.datos[c] ?? ''))];
+    let nombre = h.nombre.replace(/[\\\/\?\*\[\]:]/g, ' ').slice(0, 31) || 'Hoja';
+    let k = 2; while (usados.has(nombre)) nombre = nombre.slice(0, 27) + ' (' + k++ + ')';
+    usados.add(nombre);
+    XLSX.utils.book_append_sheet(libro, XLSX.utils.aoa_to_sheet(aoa), nombre);
+  }
+  const fecha = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(libro, `${base.nombre} ${fecha}.xlsx`);
+};
+
+/* ---------------- Importar ---------------- */
+let importacion = null;
+function abrirImportar() {
+  importacion = null;
+  $('#imp-archivo').value = ''; $('#imp-detalle').hidden = true; $('#imp-progreso').hidden = true;
+  $('#imp-estado').textContent = ''; $('#imp-confirmar').disabled = true;
+  $('#imp-cancelar').disabled = false; $('#dlg-importar').showModal();
+}
+$('#btn-importar').onclick = abrirImportar;
+$('#btn-importar-vacio').onclick = abrirImportar;
+$('#imp-cancelar').onclick = () => $('#dlg-importar').close();
+
+/* Convierte una pestaña del Excel en {columnas, filas}.
+   Toma como encabezado la primera fila con 2 o más celdas con texto. */
+function procesarHoja(ws) {
+  const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false, blankrows: false });
+  const iCab = aoa.findIndex(r => r.filter(v => String(v).trim() !== '').length >= 2);
+  if (iCab < 0) return { columnas: [], filas: [] };
+  const crudo = aoa[iCab];
+  const ancho = Math.max(...aoa.slice(iCab).map(r => r.length));
+  const columnas = []; const vistos = new Map();
+  for (let i = 0; i < ancho; i++) {
+    let n = String(crudo[i] ?? '').replace(/\s+/g, ' ').trim() || `Columna ${i + 1}`;
+    const base = n; const c = (vistos.get(base) || 0) + 1; vistos.set(base, c);
+    if (c > 1) n = `${base} (${c})`;
+    columnas.push(n);
+  }
+  const filas = aoa.slice(iCab + 1)
+    .filter(r => r.some(v => String(v).trim() !== ''))
+    .map(r => Object.fromEntries(columnas.map((c, i) => [c, String(r[i] ?? '').trim()])));
+  // Quita columnas sin encabezado real y sin ningún dato
+  const utiles = columnas.filter((c, i) => String(crudo[i] ?? '').trim() !== '' || filas.some(f => f[c] !== ''));
+  filas.forEach(f => Object.keys(f).forEach(k => { if (!utiles.includes(k)) delete f[k]; }));
+  return { columnas: utiles, filas };
+}
+
+$('#imp-archivo').onchange = async e => {
+  const archivo = e.target.files[0]; if (!archivo) return;
+  $('#imp-estado').textContent = 'Leyendo archivo…';
+  try {
+    const libro = XLSX.read(await archivo.arrayBuffer(), { type: 'array', cellDates: false });
+    const hojas = libro.SheetNames.map(n => ({ nombre: n, ...procesarHoja(libro.Sheets[n]) }));
+    importacion = { archivo: archivo.name, hojas };
+    $('#imp-nombre').value = archivo.name.replace(/\.(xlsx|xls|csv)$/i, '').trim();
+    $('#imp-hojas').innerHTML = hojas.map((h, i) => `
+      <label class="hoja-import">
+        <input type="checkbox" data-i="${i}" ${h.filas.length || h.columnas.length ? 'checked' : ''}>
+        <span>${esc(h.nombre)}</span>
+        <small>${h.filas.length ? `${h.filas.length} filas · ${h.columnas.length} columnas` : 'vacía'}</small>
+      </label>`).join('');
+    const existe = estado.bases.some(b => normalizar(b.nombre) === normalizar($('#imp-nombre').value));
+    $('#imp-aviso').textContent = existe ? 'Ya hay una base con ese nombre. Se va a crear otra aparte; cambiale el nombre si querés distinguirlas.' : '';
+    $('#imp-detalle').hidden = false; $('#imp-estado').textContent = '';
+    $('#imp-confirmar').disabled = false;
+  } catch (err) {
+    $('#imp-estado').textContent = 'No se pudo leer el archivo. Verificá que sea un Excel o CSV válido.';
+  }
+};
+
+$('#imp-confirmar').onclick = async () => {
+  if (!importacion) return;
+  const elegidas = [...document.querySelectorAll('#imp-hojas input:checked')].map(c => importacion.hojas[+c.dataset.i]);
+  const nombre = $('#imp-nombre').value.trim();
+  if (!nombre) return ($('#imp-estado').textContent = 'Poné un nombre para la base.');
+  if (!elegidas.length) return ($('#imp-estado').textContent = 'Elegí al menos una pestaña.');
+  $('#imp-confirmar').disabled = true; $('#imp-cancelar').disabled = true;
+  const barra = $('#imp-progreso'); barra.hidden = false; const relleno = barra.firstElementChild;
+  const total = elegidas.reduce((s, h) => s + h.filas.length, 0) || 1; let hechas = 0;
+  let baseId = null;
+  try {
+    const orden = Math.max(-1, ...estado.bases.map(b => b.orden)) + 1;
+    const { data: base, error: e1 } = await sb.from('bases').insert({ nombre, origen: importacion.archivo, orden }).select().single();
+    if (e1) throw e1;
+    baseId = base.id;
+    for (const [i, h] of elegidas.entries()) {
+      $('#imp-estado').textContent = `Importando "${h.nombre}"…`;
+      const { data: hoja, error: e2 } = await sb.from('hojas')
+        .insert({ base_id: baseId, nombre: h.nombre, columnas: h.columnas.length ? h.columnas : ['Columna 1'], orden: i })
+        .select().single();
+      if (e2) throw e2;
+      for (let k = 0; k < h.filas.length; k += CONFIG.LOTE_IMPORTACION) {
+        const lote = h.filas.slice(k, k + CONFIG.LOTE_IMPORTACION)
+          .map((datos, j) => ({ hoja_id: hoja.id, orden: k + j + 1, datos }));
+        const { error: e3 } = await sb.from('filas').insert(lote);
+        if (e3) throw e3;
+        hechas += lote.length; relleno.style.width = Math.round(hechas / total * 100) + '%';
+      }
+    }
+    relleno.style.width = '100%';
+    $('#dlg-importar').close();
+    aviso(`Base "${nombre}" importada`);
+    estado.hojaId = null;
+    await cargarBases(baseId);
+  } catch (err) {
+    // Si algo falló a mitad de camino, se borra lo creado para no dejar bases incompletas
+    if (baseId) await sb.from('bases').delete().eq('id', baseId);
+    $('#imp-estado').textContent = 'La importación falló y no se guardó nada: ' + (err.message || err);
+    $('#imp-confirmar').disabled = false; $('#imp-cancelar').disabled = false;
+  }
+};
+
+iniciar();
+</script>
+</body>
+</html>
