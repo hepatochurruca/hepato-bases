@@ -1636,7 +1636,9 @@ $('#btn-duplicados').onclick = () => {
     porNom.forEach(rs => {
       if (rs.length < 2) return;
       const hcs = new Set(rs.map(r => colId ? claveHC(r.datos[colId]) : null));
-      if (!colId || hcs.size > 1) grupos.push({ tipo: 'Mismo nombre, HC distinta', titulo: nombreDe(rs[0]), filas: rs });
+      const ids = rs.map(r => r.id).sort().join();
+      const yaEsta = grupos.some(g => g.filas.map(r => r.id).sort().join() === ids);
+      if (!yaEsta && (!colId || hcs.size > 1)) grupos.push({ tipo: 'Mismo nombre, HC distinta', titulo: nombreDe(rs[0]), filas: rs });
     });
   }
   estado.dupGrupos = grupos;
