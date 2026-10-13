@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   Bases de Hepatología — web app
-  Versión: 2026-10-12 22:05 ARG
+  Versión: 2026-10-12 22:40 ARG
   Requiere: supabase_bases_hepato.sql ejecutado en el proyecto Supabase.
   Configurar CONFIG (más abajo) con la URL y la anon key del proyecto.
 -->
@@ -209,7 +209,8 @@ dialog::backdrop{background:rgba(31,43,51,.45)}
       </div>
     </div>
     <span class="usuario" id="usuario-actual"></span>
-    <button class="btn primario" id="btn-importar">Importar Excel</button>
+    <button class="btn primario" id="btn-importar-drive">Importar desde Drive</button>
+    <button class="btn" id="btn-importar">Importar Excel</button>
     <button class="btn" id="btn-salir">Salir</button>
   </header>
 
@@ -301,7 +302,12 @@ const CONFIG = {
   SUPABASE_URL: 'https://jachvwlicngmrcmnjvil.supabase.co',
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImphY2h2d2xpY25nbXJjbW5qdmlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4NDYxNTgsImV4cCI6MjEwNzQyMjE1OH0.O-WGz6YiOt_octemxweAeEaxd4wzjcllfDNAcFQroy4',
   MINUTOS_INACTIVIDAD: 30,   // cierra la sesión sola si nadie la usa
-  LOTE_IMPORTACION: 500
+  LOTE_IMPORTACION: 500,
+  /* Google Drive (botón "Importar desde Drive") */
+  GOOGLE_CUENTA: 'hepatochurruca@gmail.com',
+  GOOGLE_CLIENT_ID: '585377396163-2ks39g41cl74arcsicrdefff59kkh9hq.apps.googleusercontent.com',        // …apps.googleusercontent.com
+  GOOGLE_API_KEY: 'AIzaSyAVLxGaoDq0ak5B74B2Doxk9pAoA1lOn1E',
+  GOOGLE_PROJECT_NUMBER: '585377396163'    // número de proyecto de Google Cloud
 };
 
 /* La sesión vive solo en esta pestaña del navegador (sessionStorage):
@@ -795,28 +801,109 @@ function procesarHoja(ws) {
   return { columnas: utiles, filas };
 }
 
+/* Prepara el diálogo de importación a partir del contenido de un Excel/CSV */
+function prepararImportacion(buffer, nombreArchivo, origen) {
+  const libro = XLSX.read(buffer, { type: 'array', cellDates: false });
+  const hojas = libro.SheetNames.map(n => ({ nombre: n, ...procesarHoja(libro.Sheets[n]) }));
+  importacion = { archivo: nombreArchivo, origen: origen || nombreArchivo, hojas };
+  $('#imp-nombre').value = nombreArchivo.replace(/\.(xlsx|xls|csv)$/i, '').trim();
+  $('#imp-hojas').innerHTML = hojas.map((h, i) => `
+    <label class="hoja-import">
+      <input type="checkbox" data-i="${i}" ${h.filas.length || h.columnas.length ? 'checked' : ''}>
+      <span>${esc(h.nombre)}</span>
+      <small>${h.filas.length ? `${h.filas.length} filas · ${h.columnas.length} columnas` : 'vacía'}</small>
+    </label>`).join('');
+  const yaImportada = origen && estado.bases.some(b => b.origen === origen);
+  const mismoNombre = estado.bases.some(b => normalizar(b.nombre) === normalizar($('#imp-nombre').value));
+  $('#imp-aviso').textContent = yaImportada
+    ? 'Este archivo del Drive ya fue importado antes. Si seguís, se crea una base nueva aparte.'
+    : mismoNombre ? 'Ya hay una base con ese nombre. Se va a crear otra aparte; cambiale el nombre si querés distinguirlas.' : '';
+  $('#imp-detalle').hidden = false; $('#imp-estado').textContent = '';
+  $('#imp-confirmar').disabled = false;
+}
+
 $('#imp-archivo').onchange = async e => {
   const archivo = e.target.files[0]; if (!archivo) return;
   $('#imp-estado').textContent = 'Leyendo archivo…';
-  try {
-    const libro = XLSX.read(await archivo.arrayBuffer(), { type: 'array', cellDates: false });
-    const hojas = libro.SheetNames.map(n => ({ nombre: n, ...procesarHoja(libro.Sheets[n]) }));
-    importacion = { archivo: archivo.name, hojas };
-    $('#imp-nombre').value = archivo.name.replace(/\.(xlsx|xls|csv)$/i, '').trim();
-    $('#imp-hojas').innerHTML = hojas.map((h, i) => `
-      <label class="hoja-import">
-        <input type="checkbox" data-i="${i}" ${h.filas.length || h.columnas.length ? 'checked' : ''}>
-        <span>${esc(h.nombre)}</span>
-        <small>${h.filas.length ? `${h.filas.length} filas · ${h.columnas.length} columnas` : 'vacía'}</small>
-      </label>`).join('');
-    const existe = estado.bases.some(b => normalizar(b.nombre) === normalizar($('#imp-nombre').value));
-    $('#imp-aviso').textContent = existe ? 'Ya hay una base con ese nombre. Se va a crear otra aparte; cambiale el nombre si querés distinguirlas.' : '';
-    $('#imp-detalle').hidden = false; $('#imp-estado').textContent = '';
-    $('#imp-confirmar').disabled = false;
-  } catch (err) {
-    $('#imp-estado').textContent = 'No se pudo leer el archivo. Verificá que sea un Excel o CSV válido.';
-  }
+  try { prepararImportacion(await archivo.arrayBuffer(), archivo.name); }
+  catch (err) { $('#imp-estado').textContent = 'No se pudo leer el archivo. Verificá que sea un Excel o CSV válido.'; }
 };
+
+/* ---------------- Importar desde Google Drive ---------------- */
+const MIME_PLANILLAS = [
+  'application/vnd.google-apps.spreadsheet',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel', 'text/csv'
+].join(',');
+const driveListo = () => CONFIG.GOOGLE_CLIENT_ID && CONFIG.GOOGLE_API_KEY && CONFIG.GOOGLE_PROJECT_NUMBER;
+let tokenDrive = null, clienteToken = null, pickerCargado = false;
+
+function cargarScript(src) {
+  return new Promise((ok, mal) => {
+    if (document.querySelector(`script[src="${src}"]`)) return ok();
+    const s = document.createElement('script'); s.src = src; s.async = true;
+    s.onload = ok; s.onerror = () => mal(new Error('No se pudo cargar ' + src));
+    document.head.appendChild(s);
+  });
+}
+async function prepararGoogle() {
+  await Promise.all([cargarScript('https://accounts.google.com/gsi/client'), cargarScript('https://apis.google.com/js/api.js')]);
+  if (!pickerCargado) { await new Promise(ok => gapi.load('picker', ok)); pickerCargado = true; }
+  if (!clienteToken) {
+    clienteToken = google.accounts.oauth2.initTokenClient({
+      client_id: CONFIG.GOOGLE_CLIENT_ID,
+      scope: 'https://www.googleapis.com/auth/drive.file',
+      login_hint: CONFIG.GOOGLE_CUENTA,
+      callback: () => {}
+    });
+  }
+}
+function pedirToken() {
+  return new Promise((ok, mal) => {
+    clienteToken.callback = r => r.error ? mal(new Error(r.error_description || r.error)) : ok(r.access_token);
+    clienteToken.error_callback = e => mal(new Error(e.message || 'Acceso cancelado'));
+    clienteToken.requestAccessToken({ prompt: tokenDrive ? '' : 'consent' });
+  });
+}
+async function importarDesdeDrive() {
+  try {
+    aviso('Abriendo Google Drive…');
+    await prepararGoogle();
+    tokenDrive = await pedirToken();
+    const vistaMia = new google.picker.DocsView(google.picker.ViewId.DOCS)
+      .setMimeTypes(MIME_PLANILLAS).setIncludeFolders(true).setOwnedByMe(true).setMode(google.picker.DocsViewMode.LIST);
+    const vistaCompartida = new google.picker.DocsView(google.picker.ViewId.DOCS)
+      .setMimeTypes(MIME_PLANILLAS).setOwnedByMe(false).setMode(google.picker.DocsViewMode.LIST);
+    new google.picker.PickerBuilder()
+      .setTitle('Elegí la planilla a importar')
+      .setLocale('es')
+      .setAppId(CONFIG.GOOGLE_PROJECT_NUMBER)
+      .setDeveloperKey(CONFIG.GOOGLE_API_KEY)
+      .setOAuthToken(tokenDrive)
+      .addView(vistaMia).addView(vistaCompartida)
+      .setCallback(alElegirArchivo)
+      .build().setVisible(true);
+  } catch (err) { fallo(err, 'No se pudo abrir el Drive'); }
+}
+async function alElegirArchivo(data) {
+  if (data.action !== google.picker.Action.PICKED) return;
+  const doc = data.docs[0];
+  abrirImportar();
+  $('#imp-estado').textContent = `Descargando "${doc.name}" del Drive…`;
+  try {
+    const esGoogle = doc.mimeType === 'application/vnd.google-apps.spreadsheet';
+    const url = esGoogle
+      ? `https://www.googleapis.com/drive/v3/files/${doc.id}/export?mimeType=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+      : `https://www.googleapis.com/drive/v3/files/${doc.id}?alt=media`;
+    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + tokenDrive } });
+    if (!r.ok) throw new Error(`Drive respondió ${r.status}`);
+    prepararImportacion(await r.arrayBuffer(), esGoogle ? doc.name + '.xlsx' : doc.name, 'drive:' + doc.id);
+  } catch (err) {
+    $('#imp-estado').textContent = 'No se pudo descargar la planilla del Drive: ' + err.message;
+  }
+}
+$('#btn-importar-drive').onclick = importarDesdeDrive;
+if (!driveListo()) $('#btn-importar-drive').hidden = true;
 
 $('#imp-confirmar').onclick = async () => {
   if (!importacion) return;
@@ -830,7 +917,7 @@ $('#imp-confirmar').onclick = async () => {
   let baseId = null;
   try {
     const orden = Math.max(-1, ...estado.bases.map(b => b.orden)) + 1;
-    const { data: base, error: e1 } = await sb.from('bases').insert({ nombre, origen: importacion.archivo, orden, grupo: $('#imp-grupo').value }).select().single();
+    const { data: base, error: e1 } = await sb.from('bases').insert({ nombre, origen: importacion.origen, orden, grupo: $('#imp-grupo').value }).select().single();
     if (e1) throw e1;
     baseId = base.id;
     for (const [i, h] of elegidas.entries()) {
