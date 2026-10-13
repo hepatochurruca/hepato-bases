@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   Bases de Hepatología — web app
-  Versión: 2026-10-13 01:20 ARG
+  Versión: 2026-10-13 02:30 ARG
   Requiere: supabase_bases_hepato.sql ejecutado en el proyecto Supabase.
   Configurar CONFIG (más abajo) con la URL y la anon key del proyecto.
 -->
@@ -158,7 +158,7 @@ td{border-bottom:1px solid var(--linea-2);border-right:1px solid var(--linea-2);
 td[contenteditable=true]{white-space:pre-wrap;overflow:visible;max-width:none;background:var(--ambar-claro);outline:2px solid var(--ambar);outline-offset:-2px}
 tbody tr:hover td{background:var(--hover)}
 tbody tr:hover td.num{background:var(--cabecera-tabla)}
-td.acciones{position:sticky;right:0;background:var(--blanco);width:36px;padding:2px 4px;text-align:center}
+td.acciones{position:sticky;right:0;background:var(--blanco);width:64px;white-space:nowrap;padding:2px 4px;text-align:center}
 td.acciones button{opacity:0;border:0;background:none;cursor:pointer;color:var(--rojo);padding:3px 6px;border-radius:4px}
 tr:hover td.acciones button,td.acciones button:focus-visible{opacity:1}
 td.acciones button:hover{background:var(--rojo-claro)}
@@ -235,6 +235,68 @@ dialog::backdrop{background:rgba(31,43,51,.45)}
 .pap-item .info b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pap-item .info small{color:var(--tinta-3)}
 .pap-vacia{padding:24px 0;text-align:center;color:var(--tinta-3)}
+
+/* Buscador global */
+.buscador-global{position:relative;flex:1;min-width:160px;max-width:440px;margin-left:12px}
+header.barra .marca{flex:none}
+@media (max-width:1450px){header.barra .usuario{display:none}}
+.buscador-global input{width:100%;padding:7px 12px;border-radius:999px;border:1px solid var(--barra-borde);background:rgba(255,255,255,.08);color:#fff}
+.buscador-global input::placeholder{color:#9fb0ba}
+.resultados-global{position:absolute;top:calc(100% + 6px);left:0;right:0;max-height:70vh;overflow:auto;background:var(--blanco);color:var(--tinta);border:1px solid var(--linea);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.25);z-index:60}
+.res-item{display:block;width:100%;text-align:left;border:0;background:none;padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--linea-2)}
+.res-item:hover,.res-item:focus-visible{background:var(--hover)}
+.res-item b{display:block}
+.res-item small{color:var(--tinta-3)}
+.res-vacio{padding:14px;color:var(--tinta-3)}
+@media (max-width:1100px){.buscador-global{max-width:260px}}
+@media (max-width:820px){.buscador-global{display:none}}
+/* Ficha */
+.ficha-cab{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 14px}
+.ficha-cab span{background:var(--verde-claro);color:var(--verde);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600}
+.ficha-sec{border:1px solid var(--linea);border-radius:8px;margin-bottom:12px;overflow:hidden}
+.ficha-sec header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--cabecera-tabla)}
+.ficha-sec header b{flex:1}
+.ficha-kv{display:grid;grid-template-columns:minmax(120px,34%) 1fr;gap:4px 12px;padding:10px 12px;font-size:13px}
+.ficha-kv dt{color:var(--tinta-3)}
+.ficha-kv dd{margin:0;white-space:pre-wrap;word-break:break-word}
+#dlg-ficha,#dlg-editar,#dlg-stats{max-width:min(860px,96vw)}
+#dlg-ficha .dlg-cuerpo,#dlg-editar .dlg-cuerpo,#dlg-stats .dlg-cuerpo{max-height:76vh}
+/* Formulario de edición */
+.form-campos{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.form-campos label span{display:block;font-size:12px;color:var(--tinta-2);margin-bottom:3px}
+.form-campos textarea{width:100%;padding:7px 9px;border:1px solid var(--linea);border-radius:var(--radio);background:var(--blanco);color:var(--tinta);font:inherit;resize:vertical;min-height:36px}
+.form-campos .largo{grid-column:1/-1}
+.form-campos .cambiado textarea{border-color:var(--ambar);background:var(--ambar-claro)}
+@media (max-width:620px){.form-campos{grid-template-columns:1fr}}
+td.acciones button.editar{color:var(--verde)}
+td.acciones button.editar:hover{background:var(--verde-claro)}
+/* Filtros */
+.filtros{padding:10px 18px;border-bottom:1px solid var(--linea);background:var(--papel)}
+.filtro-fila{display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+.filtro-fila select,.filtro-fila input{padding:5px 8px;border:1px solid var(--linea);border-radius:var(--radio);background:var(--blanco);color:var(--tinta);font-size:13px}
+.filtro-fila input{min-width:180px}
+.filtros-pie{display:flex;gap:8px;align-items:center}
+#btn-filtros.activo{background:var(--verde);color:#fff;border-color:var(--verde)}
+/* Conteo de valores / duplicados / estadísticas */
+.lista-conteo{width:100%;border-collapse:collapse;font-size:13px}
+.lista-conteo td{padding:6px 8px;border-bottom:1px solid var(--linea-2)}
+.lista-conteo td.n{text-align:right;font-variant-numeric:tabular-nums;width:70px}
+.lista-conteo tr.clic{cursor:pointer}.lista-conteo tr.clic:hover td{background:var(--hover)}
+.barra-h{height:8px;background:var(--verde);border-radius:4px;min-width:2px}
+.dup-grupo{border:1px solid var(--linea);border-radius:8px;padding:10px 12px;margin-bottom:10px}
+.dup-grupo h4{margin:0 0 6px;font:600 13px var(--sans)}
+.dup-grupo .tipo{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--ambar-claro);color:var(--ambar-texto);margin-left:6px}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.stats-card{border:1px solid var(--linea);border-radius:8px;padding:12px 14px}
+.stats-card h4{margin:0 0 10px;font:600 15px var(--cond)}
+.stats-card.ancha{grid-column:1/-1}
+.barra-fila{display:grid;grid-template-columns:minmax(110px,38%) 1fr 48px;gap:8px;align-items:center;font-size:13px;margin-bottom:6px}
+.barra-fila .n{text-align:right;font-variant-numeric:tabular-nums}
+.tabla-anios{width:100%;border-collapse:collapse;font-size:12px}
+.tabla-anios th,.tabla-anios td{padding:5px 6px;border-bottom:1px solid var(--linea-2);text-align:right}
+.tabla-anios th:first-child,.tabla-anios td:first-child{text-align:left}
+@media (max-width:620px){.stats-grid{grid-template-columns:1fr}}
+.anon-col{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--linea-2);font-size:13px}
 @media (max-width:820px){
   header.barra .marca-hospital{display:none}
   #vista-app{grid-template-columns:1fr}
@@ -275,6 +337,10 @@ dialog::backdrop{background:rgba(31,43,51,.45)}
         <p class="marca-hospital">HOSPITAL CHURRUCA-VISCA</p>
       </div>
     </div>
+    <div class="buscador-global">
+      <input type="search" id="buscar-global" placeholder="🔍 Buscar paciente o HC en todas las bases" autocomplete="off" aria-label="Buscar en todas las bases">
+      <div class="resultados-global" id="resultados-global" hidden></div>
+    </div>
     <span class="usuario" id="usuario-actual"></span>
     <button class="btn primario" id="btn-paciente">+ Nuevo paciente</button>
     <button class="btn" id="btn-importar-drive">Importar desde Drive</button>
@@ -305,6 +371,7 @@ dialog::backdrop{background:rgba(31,43,51,.45)}
           <option value="">Sin clasificar</option>
         </select>
         <button class="btn chico" id="btn-exportar">Descargar Excel</button>
+        <button class="btn chico" id="btn-anonimo">Descargar anonimizado</button>
         <button class="btn chico" id="btn-renombrar-base">Renombrar</button>
         <button class="btn chico peligro" id="btn-eliminar-base">Eliminar base</button>
       </div>
@@ -313,8 +380,18 @@ dialog::backdrop{background:rgba(31,43,51,.45)}
         <input type="search" id="buscar" placeholder="Buscar en esta pestaña" aria-label="Buscar en esta pestaña">
         <button class="btn chico" id="btn-nueva-fila">Agregar fila</button>
         <button class="btn chico" id="btn-nueva-columna">Agregar columna</button>
+        <button class="btn chico" id="btn-filtros">Filtros</button>
+        <button class="btn chico" id="btn-duplicados">Duplicados</button>
         <button class="btn chico" id="btn-hoja-menu">Pestaña…</button>
         <span class="contador" id="contador"></span>
+      </div>
+      <div class="filtros" id="filtros" hidden>
+        <div id="filtros-lista"></div>
+        <div class="filtros-pie">
+          <button class="btn chico" id="filtro-agregar">+ Agregar filtro</button>
+          <button class="btn chico" id="filtro-limpiar">Limpiar filtros</button>
+          <span class="nota" id="filtro-aviso"></span>
+        </div>
       </div>
       <div class="tabla-wrap" id="tabla-wrap"></div>
     </div>
@@ -419,6 +496,34 @@ dialog::backdrop{background:rgba(31,43,51,.45)}
   </div>
   <div class="dlg-pie"><button class="btn" id="papelera-cerrar">Cerrar</button></div>
 </dialog>
+
+<!-- ============ FICHA DEL PACIENTE ============ -->
+<dialog id="dlg-ficha"><div class="dlg-cab"><h3 id="ficha-titulo">Ficha del paciente</h3></div>
+  <div class="dlg-cuerpo" id="ficha-cuerpo"></div>
+  <div class="dlg-pie"><button class="btn" id="ficha-cerrar">Cerrar</button></div></dialog>
+<!-- ============ EDITAR EN FORMULARIO ============ -->
+<dialog id="dlg-editar"><div class="dlg-cab"><h3 id="editar-titulo">Editar</h3></div>
+  <div class="dlg-cuerpo">
+    <input type="search" id="editar-buscar" placeholder="Buscar campo…" style="width:100%;padding:7px 10px;border:1px solid var(--linea);border-radius:var(--radio);margin-bottom:12px;background:var(--blanco);color:var(--tinta)" hidden>
+    <div class="form-campos" id="editar-campos"></div>
+  </div>
+  <div class="dlg-pie"><span class="nota" id="editar-estado" style="margin-right:auto"></span>
+    <button class="btn" id="editar-cancelar">Cancelar</button><button class="btn primario" id="editar-guardar">Guardar cambios</button></div></dialog>
+<!-- ============ GENÉRICO DE LISTADOS (conteos, duplicados) ============ -->
+<dialog id="dlg-lista" class="dlg-ancho"><div class="dlg-cab"><h3 id="lista-titulo"></h3></div>
+  <div class="dlg-cuerpo" id="lista-cuerpo"></div>
+  <div class="dlg-pie"><button class="btn" id="lista-cerrar">Cerrar</button></div></dialog>
+<!-- ============ ESTADÍSTICAS ============ -->
+<dialog id="dlg-stats"><div class="dlg-cab"><h3>Estadísticas</h3></div>
+  <div class="dlg-cuerpo" id="stats-cuerpo"></div>
+  <div class="dlg-pie"><button class="btn" id="stats-cerrar">Cerrar</button></div></dialog>
+<!-- ============ ANONIMIZADO ============ -->
+<dialog id="dlg-anon" class="dlg-ancho"><div class="dlg-cab"><h3>Descargar base anonimizada</h3></div>
+  <div class="dlg-cuerpo">
+    <p class="nota">Tildá las columnas que se <b>quitan</b>. Cada paciente recibe un código (P0001, P0002…) igual en todas las pestañas. La fecha de nacimiento se reemplaza por la edad.</p>
+    <div id="anon-cols"></div>
+  </div>
+  <div class="dlg-pie"><button class="btn" id="anon-cancelar">Cancelar</button><button class="btn primario" id="anon-ok">Descargar</button></div></dialog>
 
 <div id="aviso" hidden role="status"></div>
 
@@ -628,6 +733,8 @@ $('#pestanas').onclick = e => { const p = e.target.closest('.pestana'); if (p) a
 async function abrirHoja(id) {
   estado.hojaId = id; estado.filas = []; estado.orden = { col: null, asc: true };
   $('#buscar').value = ''; estado.filtro = '';
+  if (!estado.mantenerFiltros) { estado.filtros = []; estado.soloIds = null; pintarFiltros(); }
+  estado.mantenerFiltros = false;
   pintarPestanas();
   if (!id) { $('#tabla-wrap').innerHTML = '<div class="estado-vacio"><h3>Esta base no tiene pestañas</h3></div>'; $('#contador').textContent = ''; return; }
   $('#tabla-wrap').innerHTML = '<div class="estado-vacio">Cargando…</div>';
@@ -690,6 +797,7 @@ function filasVisibles() {
   let filas = estado.filas;
   const f = normalizar(estado.filtro);
   if (f) filas = filas.filter(r => cols.some(c => normalizar(r.datos[c]).includes(f)));
+  filas = aplicarFiltros(filas);
   const { col, asc } = estado.orden;
   if (col) {
     filas = [...filas].sort((a, b) => {
@@ -722,7 +830,7 @@ function pintarTabla() {
   const MAX = 3000;
   const cuerpo = filas.slice(0, MAX).map((r, i) => `<tr data-id="${r.id}"><td class="num">${i + 1}</td>${
     cols.map((c, j) => `<td data-col="${j}" title="${esc(r.datos[c])}">${resaltar(r.datos[c])}</td>`).join('')
-  }<td class="acciones"><button data-borrar="${r.id}" aria-label="Eliminar fila" title="Eliminar fila">✕</button></td></tr>`).join('');
+  }<td class="acciones"><button class="editar" data-editar="${r.id}" aria-label="Editar en formulario" title="Editar en formulario">✎</button><button data-borrar="${r.id}" aria-label="Eliminar fila" title="Eliminar fila">✕</button></td></tr>`).join('');
   $('#tabla-wrap').innerHTML = cols.length
     ? `<table>${cab}<tbody>${cuerpo}</tbody></table>`
     : '<div class="estado-vacio"><h3>Pestaña sin columnas</h3><p>Agregá una columna para empezar.</p></div>';
@@ -830,6 +938,8 @@ function menuColumna(boton, col) {
     ['Mover a la izquierda', () => moverColumna(col, -1)],
     ['Mover a la derecha', () => moverColumna(col, 1)],
     ['Renombrar columna', () => renombrarColumna(col)],
+    ['Contar valores', () => contarValores(col)],
+    ['Filtrar por esta columna', () => { agregarFiltro(col); }],
     ['Eliminar columna', () => eliminarColumna(col), true]
   ]);
 }
@@ -1227,6 +1337,7 @@ $('#btn-ajustes').onclick = e => {
     [m('auto', 'Tema automático (según el equipo)'), () => { aplicarTema('auto'); aviso('Tema automático'); }],
     [m('light', 'Tema claro'), () => { aplicarTema('light'); aviso('Tema claro'); }],
     [m('dark', 'Tema oscuro'), () => { aplicarTema('dark'); aviso('Tema oscuro'); }],
+    ['📊  Estadísticas', abrirEstadisticas],
     ['🗑  Papelera', abrirPapelera]
   ]);
   const menu = $('#menu-flotante'); if (menu) { menu.style.left = 'auto'; menu.style.right = '16px'; }
@@ -1274,6 +1385,336 @@ $('#papelera-lista').onclick = async e => {
     }
     abrirPapelera();
   }
+};
+
+/* =====================================================================
+   MEJORAS: buscador global, ficha, edición en formulario, filtros,
+   conteos, duplicados, estadísticas, exportación anonimizada
+   ===================================================================== */
+const COLS_ID = ['HC','OS','O.S.','HC / OS','N° DE O.S.','OBRA SOCIAL','AFILIADO','os'];
+const COLS_NOMBRE = ['APELLIDO','Apellido','NOMBRE','Nombre','PACIENTE','APELLIDO Y NOMBRE','APELLIDO y NOMBRE','NOMBRE Y APELLIDO','Nombre y apellido','NOMBRE Y APELLIDO','INICIALES PACIENTE'];
+const claveHC = v => { const m = String(v || '').match(/(\d{3,7})\s*[\/\-_.]?\s*(\d{0,2})/); return m ? `${m[1]}/${String(+(m[2] || 0)).padStart(2, '0')}` : null; };
+const etiqueta = (base, hoja, n) => n > 1 ? `${base} · ${hoja}` : base;
+
+/* ---------- Buscador global ---------- */
+let globalT;
+$('#buscar-global').addEventListener('input', e => {
+  clearTimeout(globalT);
+  const q = e.target.value.trim();
+  if (q.length < 2) { $('#resultados-global').hidden = true; return; }
+  globalT = setTimeout(() => buscarGlobal(q), 350);
+});
+$('#buscar-global').addEventListener('keydown', e => { if (e.key === 'Escape') { e.target.value = ''; $('#resultados-global').hidden = true; } });
+document.addEventListener('click', e => { if (!e.target.closest('.buscador-global')) $('#resultados-global').hidden = true; });
+async function buscarGlobal(q) {
+  const caja = $('#resultados-global'); caja.hidden = false; caja.innerHTML = '<div class="res-vacio">Buscando…</div>';
+  const { data, error } = await sb.rpc('buscar_global', { q });
+  if (error) { caja.innerHTML = `<div class="res-vacio">Error: ${esc(error.message)}</div>`; return; }
+  if ($('#buscar-global').value.trim() !== q) return;
+  const grupos = new Map();
+  data.forEach(r => {
+    const g = grupos.get(r.clave) || { clave: r.clave, nombre: r.nombre, ident: r.ident, bases: new Set(), por: r.coincide };
+    g.bases.add(r.base); if (!g.ident && r.ident) g.ident = r.ident;
+    if (r.nombre && r.nombre.length > (g.nombre || '').length) g.nombre = r.nombre;
+    grupos.set(r.clave, g);
+  });
+  const lista = [...grupos.values()].sort((a, b) => b.bases.size - a.bases.size);
+  caja.innerHTML = lista.length ? lista.slice(0, 40).map(g => `
+    <button class="res-item" data-clave="${esc(g.clave)}">
+      <b>${esc(g.nombre || '(sin nombre)')}${g.ident ? ` · HC ${esc(g.ident)}` : ''}</b>
+      <small>${g.bases.size} base${g.bases.size > 1 ? 's' : ''}: ${esc([...g.bases].slice(0, 6).join(', '))}${g.bases.size > 6 ? '…' : ''}${g.por === 'texto' ? ' · coincide en el contenido' : ''}</small>
+    </button>`).join('') + (lista.length > 40 ? `<div class="res-vacio">Hay ${lista.length} resultados. Escribí más para acotar.</div>` : '')
+    : '<div class="res-vacio">Sin resultados.</div>';
+}
+$('#resultados-global').onclick = e => {
+  const b = e.target.closest('[data-clave]'); if (!b) return;
+  $('#resultados-global').hidden = true; abrirFicha(b.dataset.clave);
+};
+
+/* ---------- Ficha del paciente ---------- */
+async function abrirFicha(clave) {
+  estado.fichaClave = clave;
+  $('#ficha-titulo').textContent = 'Ficha del paciente';
+  $('#ficha-cuerpo').innerHTML = '<p class="nota">Cargando…</p>';
+  $('#dlg-ficha').showModal();
+  const { data, error } = await sb.rpc('ficha_paciente', { k: clave });
+  if (error) return fallo(error, 'No se pudo abrir la ficha');
+  const nombre = data.map(r => r.nombre).sort((a, b) => (b || '').length - (a || '').length)[0] || '';
+  const ident = data.map(r => r.ident).find(Boolean) || '';
+  $('#ficha-titulo').textContent = `${nombre}${ident ? ' · HC ' + ident : ''}`;
+  const bases = [...new Set(data.map(r => r.base))];
+  estado.fichaFilas = data;
+  $('#ficha-cuerpo').innerHTML = `<div class="ficha-cab">${bases.map(b => `<span>${esc(b)}</span>`).join('')}</div>` +
+    data.map((r, i) => {
+      const kv = Object.entries(r.datos).filter(([k, v]) => String(v).trim() !== '' && !COLS_NOMBRE.includes(k));
+      return `<section class="ficha-sec"><header><b>${esc(r.base)}${r.base !== r.hoja ? ' · ' + esc(r.hoja) : ''}</b>
+        <button class="btn chico" data-ficha-editar="${i}">Editar</button>
+        <button class="btn chico" data-ficha-ir="${i}">Ir a la base</button></header>
+        <dl class="ficha-kv">${kv.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('') || '<dd class="nota">Sin otros datos</dd>'}</dl></section>`;
+    }).join('');
+}
+$('#ficha-cerrar').onclick = () => $('#dlg-ficha').close();
+$('#ficha-cuerpo').onclick = async e => {
+  const ed = e.target.closest('[data-ficha-editar]'), ir = e.target.closest('[data-ficha-ir]');
+  const r = estado.fichaFilas?.[(ed || ir)?.dataset.fichaEditar ?? (ed || ir)?.dataset.fichaIr];
+  if (!r) return;
+  if (ed) {
+    const { data: hoja } = await sb.from('hojas').select('columnas').eq('id', r.hoja_id).single();
+    abrirEditor({ filaId: r.fila_id, hojaId: r.hoja_id, columnas: hoja?.columnas || Object.keys(r.datos), datos: r.datos,
+      titulo: `${r.base} · ${r.hoja}`, alGuardar: () => abrirFicha(estado.fichaClave) });
+  }
+  if (ir) {
+    $('#dlg-ficha').close();
+    const { data: hoja } = await sb.from('hojas').select('base_id').eq('id', r.hoja_id).single();
+    if (!hoja) return;
+    estado.hojaId = r.hoja_id; await abrirBase(hoja.base_id);
+    estado.soloIds = new Set([r.fila_id]); pintarFiltros(); pintarTabla();
+    aviso('Mostrando la fila del paciente. Limpiá los filtros para ver todo.');
+  }
+};
+
+/* ---------- Edición en formulario ---------- */
+let editor = null;
+function abrirEditor({ filaId, hojaId, columnas, datos, titulo, alGuardar }) {
+  editor = { filaId, hojaId, columnas, original: { ...datos }, alGuardar };
+  $('#editar-titulo').textContent = titulo || 'Editar fila';
+  $('#editar-estado').textContent = '';
+  const largos = c => String(datos[c] ?? '').length > 60 || /coment|observ|diagn|evol|etiolog|datos de origen|fuentes/i.test(c);
+  $('#editar-campos').innerHTML = columnas.map((c, i) => `
+    <label class="${largos(c) ? 'largo' : ''}" data-campo="${esc(normalizar(c))}"><span>${esc(c)}</span>
+      <textarea data-i="${i}" rows="${largos(c) ? 3 : 1}">${esc(datos[c] ?? '')}</textarea></label>`).join('');
+  $('#editar-buscar').hidden = columnas.length < 12; $('#editar-buscar').value = '';
+  $('#dlg-editar').showModal();
+  $('#editar-campos textarea')?.focus();
+}
+$('#editar-campos').addEventListener('input', e => {
+  const t = e.target.closest('textarea'); if (!t) return;
+  const c = editor.columnas[t.dataset.i];
+  t.parentElement.classList.toggle('cambiado', t.value !== String(editor.original[c] ?? ''));
+  const n = document.querySelectorAll('#editar-campos .cambiado').length;
+  $('#editar-estado').textContent = n ? `${n} campo${n > 1 ? 's' : ''} modificado${n > 1 ? 's' : ''}` : '';
+});
+$('#editar-buscar').oninput = e => {
+  const f = normalizar(e.target.value);
+  document.querySelectorAll('#editar-campos label').forEach(l => l.hidden = f && !l.dataset.campo.includes(f));
+};
+$('#editar-cancelar').onclick = () => $('#dlg-editar').close();
+$('#editar-guardar').onclick = async () => {
+  const cambios = {};
+  document.querySelectorAll('#editar-campos textarea').forEach(t => {
+    const c = editor.columnas[t.dataset.i];
+    if (t.value !== String(editor.original[c] ?? '')) cambios[c] = t.value;
+  });
+  if (!Object.keys(cambios).length) return $('#dlg-editar').close();
+  const b = $('#editar-guardar'); b.disabled = true;
+  const { error } = await sb.rpc('actualizar_campos', { p_fila: editor.filaId, p_cambios: cambios });
+  b.disabled = false;
+  if (error) return fallo(error, 'No se guardaron los cambios');
+  $('#dlg-editar').close(); aviso('Cambios guardados');
+  const f = estado.filas.find(r => r.id === editor.filaId);
+  if (f) { Object.assign(f.datos, cambios); pintarTabla(); }
+  editor.alGuardar?.();
+};
+$('#tabla-wrap').addEventListener('click', e => {
+  const b = e.target.closest('[data-editar]'); if (!b) return;
+  const f = estado.filas.find(r => r.id === b.dataset.editar), h = hojaActual();
+  const base = estado.bases.find(x => x.id === estado.baseId);
+  abrirEditor({ filaId: f.id, hojaId: h.id, columnas: h.columnas, datos: f.datos, titulo: `${base?.nombre || ''} · ${h.nombre}` });
+});
+
+/* ---------- Filtros por columna ---------- */
+estado.filtros = []; estado.soloIds = null;
+const OPS = [['contiene','contiene'],['no_contiene','no contiene'],['igual','es igual a'],['vacio','está vacío'],['no_vacio','no está vacío']];
+function aplicarFiltros(filas) {
+  if (estado.soloIds) filas = filas.filter(r => estado.soloIds.has(r.id));
+  for (const f of estado.filtros) {
+    if (!f.col) continue;
+    const v = normalizar(f.valor);
+    filas = filas.filter(r => {
+      const x = normalizar(r.datos[f.col]);
+      switch (f.op) {
+        case 'contiene': return !v || x.includes(v);
+        case 'no_contiene': return !v || !x.includes(v);
+        case 'igual': return x.trim() === v.trim();
+        case 'vacio': return x.trim() === '';
+        case 'no_vacio': return x.trim() !== '';
+      }
+      return true;
+    });
+  }
+  return filas;
+}
+function pintarFiltros() {
+  const cols = hojaActual()?.columnas || [];
+  const activos = estado.filtros.length || estado.soloIds;
+  $('#btn-filtros').classList.toggle('activo', !!activos);
+  $('#btn-filtros').textContent = activos ? `Filtros (${estado.filtros.length + (estado.soloIds ? 1 : 0)})` : 'Filtros';
+  if (activos) $('#filtros').hidden = false;
+  $('#filtros-lista').innerHTML = (estado.soloIds ? `<div class="filtro-fila"><span class="nota">Mostrando ${estado.soloIds.size} fila(s) seleccionada(s)</span>
+      <button class="btn chico" data-quitar-ids>×</button></div>` : '') +
+    estado.filtros.map((f, i) => `<div class="filtro-fila" data-i="${i}">
+      <select data-k="col">${cols.map(c => `<option ${c === f.col ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
+      <select data-k="op">${OPS.map(([v, t]) => `<option value="${v}" ${v === f.op ? 'selected' : ''}>${t}</option>`).join('')}</select>
+      <input data-k="valor" value="${esc(f.valor)}" placeholder="valor" ${['vacio','no_vacio'].includes(f.op) ? 'hidden' : ''}>
+      <button class="btn chico" data-quitar="${i}" aria-label="Quitar filtro">×</button></div>`).join('');
+}
+function agregarFiltro(col, op = 'contiene', valor = '') {
+  estado.filtros.push({ col: col || (hojaActual()?.columnas || [])[0], op, valor });
+  $('#filtros').hidden = false; pintarFiltros(); pintarTabla();
+  if (!valor) $('#filtros-lista .filtro-fila:last-child input')?.focus();
+}
+$('#btn-filtros').onclick = () => {
+  const f = $('#filtros'); f.hidden = !f.hidden;
+  if (!f.hidden && !estado.filtros.length && !estado.soloIds) agregarFiltro();
+};
+$('#filtro-agregar').onclick = () => agregarFiltro();
+$('#filtro-limpiar').onclick = () => { estado.filtros = []; estado.soloIds = null; pintarFiltros(); pintarTabla(); };
+let filtroT;
+$('#filtros-lista').addEventListener('input', e => {
+  const fila = e.target.closest('.filtro-fila[data-i]'); if (!fila) return;
+  const f = estado.filtros[fila.dataset.i]; f[e.target.dataset.k] = e.target.value;
+  if (e.target.dataset.k === 'op') { pintarFiltros(); }
+  clearTimeout(filtroT); filtroT = setTimeout(pintarTabla, 200);
+});
+$('#filtros-lista').addEventListener('click', e => {
+  const q = e.target.closest('[data-quitar]'), qi = e.target.closest('[data-quitar-ids]');
+  if (q) { estado.filtros.splice(+q.dataset.quitar, 1); pintarFiltros(); pintarTabla(); }
+  if (qi) { estado.soloIds = null; pintarFiltros(); pintarTabla(); }
+});
+
+/* ---------- Contar valores de una columna ---------- */
+function abrirLista(titulo, html) { $('#lista-titulo').textContent = titulo; $('#lista-cuerpo').innerHTML = html; $('#dlg-lista').showModal(); }
+$('#lista-cerrar').onclick = () => $('#dlg-lista').close();
+function contarValores(col) {
+  const filas = aplicarFiltros(estado.filas);
+  const m = new Map();
+  filas.forEach(r => { const v = String(r.datos[col] ?? '').trim() || '(vacío)'; m.set(v, (m.get(v) || 0) + 1); });
+  const lista = [...m.entries()].sort((a, b) => b[1] - a[1]);
+  const max = lista[0]?.[1] || 1;
+  abrirLista(`${col} — ${filas.length} filas, ${lista.length} valores distintos`,
+    `<p class="nota">Tocá un valor para filtrar la tabla por ese valor.</p><table class="lista-conteo">${lista.map(([v, n]) =>
+      `<tr class="clic" data-valor="${esc(v)}"><td>${esc(v)}</td><td style="width:35%"><div class="barra-h" style="width:${Math.round(n / max * 100)}%"></div></td><td class="n">${n}</td></tr>`).join('')}</table>`);
+  $('#lista-cuerpo').onclick = e => {
+    const tr = e.target.closest('[data-valor]'); if (!tr) return;
+    const v = tr.dataset.valor;
+    $('#dlg-lista').close();
+    agregarFiltro(col, v === '(vacío)' ? 'vacio' : 'igual', v === '(vacío)' ? '' : v);
+  };
+}
+
+/* ---------- Detector de duplicados ---------- */
+$('#btn-duplicados').onclick = () => {
+  const h = hojaActual(); if (!h) return;
+  const colId = h.columnas.find(c => COLS_ID.includes(c));
+  const colsNom = h.columnas.filter(c => COLS_NOMBRE.includes(c));
+  const nombreDe = r => colsNom.map(c => r.datos[c]).filter(Boolean).join(' ');
+  const nn = r => normalizar(nombreDe(r)).replace(/[^a-z]/g, '');
+  const grupos = [];
+  // 1) misma HC repetida
+  if (colId) {
+    const porHC = new Map();
+    estado.filas.forEach(r => { const k = claveHC(r.datos[colId]); if (k) porHC.set(k, [...(porHC.get(k) || []), r]); });
+    porHC.forEach((rs, k) => { if (rs.length > 1) grupos.push({ tipo: 'Misma HC', titulo: `HC ${k}`, filas: rs }); });
+    // 3) HC parecidas (un dígito distinto o dos dígitos invertidos) con apellido parecido
+    const lista = [...porHC.keys()];
+    const cerca = (a, b) => {
+      if (a.length !== b.length || a === b) return false;
+      const d = [...a].map((c, i) => c !== b[i] ? i : -1).filter(i => i >= 0);
+      return d.length === 1 || (d.length === 2 && d[1] === d[0] + 1 && a[d[0]] === b[d[1]] && a[d[1]] === b[d[0]]);
+    };
+    for (let i = 0; i < lista.length; i++) for (let j = i + 1; j < lista.length; j++) {
+      if (!cerca(lista[i], lista[j])) continue;
+      const ra = porHC.get(lista[i])[0], rb = porHC.get(lista[j])[0];
+      if (nn(ra).slice(0, 4) && nn(ra).slice(0, 4) === nn(rb).slice(0, 4))
+        grupos.push({ tipo: 'HC posiblemente mal escrita', titulo: `${lista[i]} y ${lista[j]}`, filas: [...porHC.get(lista[i]), ...porHC.get(lista[j])] });
+    }
+  }
+  // 2) mismo nombre con HC distinta (o sin HC)
+  if (colsNom.length) {
+    const porNom = new Map();
+    estado.filas.forEach(r => { const k = nn(r); if (k.length > 4) porNom.set(k, [...(porNom.get(k) || []), r]); });
+    porNom.forEach(rs => {
+      if (rs.length < 2) return;
+      const hcs = new Set(rs.map(r => colId ? claveHC(r.datos[colId]) : null));
+      if (!colId || hcs.size > 1) grupos.push({ tipo: 'Mismo nombre, HC distinta', titulo: nombreDe(rs[0]), filas: rs });
+    });
+  }
+  estado.dupGrupos = grupos;
+  abrirLista(`Posibles duplicados en ${h.nombre} — ${grupos.length} caso${grupos.length === 1 ? '' : 's'}`,
+    grupos.length ? `<p class="nota">Tocá "Ver" para mostrar esas filas en la tabla y corregirlas o borrar la que sobra.</p>` + grupos.map((g, i) => `
+      <div class="dup-grupo"><h4>${esc(g.titulo)}<span class="tipo">${g.tipo}</span>
+        <button class="btn chico" style="float:right" data-ver-dup="${i}">Ver</button></h4>
+        ${g.filas.map(r => `<div class="nota">${esc(nombreDe(r) || '(sin nombre)')}${colId ? ' · ' + esc(r.datos[colId] || 's/HC') : ''}</div>`).join('')}</div>`).join('')
+    : '<p>No se encontraron duplicados en esta pestaña. 👍</p>');
+  $('#lista-cuerpo').onclick = e => {
+    const b = e.target.closest('[data-ver-dup]'); if (!b) return;
+    estado.soloIds = new Set(estado.dupGrupos[b.dataset.verDup].filas.map(r => r.id));
+    $('#dlg-lista').close(); pintarFiltros(); pintarTabla();
+  };
+};
+
+/* ---------- Estadísticas ---------- */
+async function abrirEstadisticas() {
+  $('#stats-cuerpo').innerHTML = '<p class="nota">Calculando…</p>'; $('#dlg-stats').showModal();
+  const { data: s, error } = await sb.rpc('estadisticas');
+  if (error) return fallo(error, 'No se pudieron calcular las estadísticas');
+  const barras = (lista, k, v) => { const max = Math.max(1, ...lista.map(x => x[v])); return lista.map(x =>
+    `<div class="barra-fila"><span>${esc(x[k])}</span><div class="barra-h" style="width:${Math.round(x[v] / max * 100)}%"></div><span class="n">${x[v]}</span></div>`).join(''); };
+  const obj = o => Object.entries(o || {}).map(([k, n]) => ({ k, n }));
+  const anios = s.por_anio || [];
+  const bases = [...new Set(anios.map(x => x.base))], cols = [...new Set(anios.map(x => x.anio))].sort();
+  $('#stats-cuerpo').innerHTML = `<div class="stats-grid">
+    <div class="stats-card ancha"><h4>Pacientes por patología</h4>${barras(s.patologias || [], 'base', 'n')}</div>
+    <div class="stats-card"><h4>Cirrosis: estado</h4>${barras(obj(s.cirrosis_estado), 'k', 'n')}</div>
+    <div class="stats-card"><h4>Cirrosis: método diagnóstico</h4>${barras(obj(s.cirrosis_diagnostico), 'k', 'n')}</div>
+    <div class="stats-card ancha"><h4>Cirrosis: etiología</h4>${barras(s.cirrosis_etiologia || [], 'et', 'n')}</div>
+    <div class="stats-card ancha"><h4>Procedimientos y registros por año</h4><div style="overflow-x:auto"><table class="tabla-anios">
+      <tr><th>Registro</th>${cols.map(c => `<th>${esc(c)}</th>`).join('')}<th>Total</th></tr>
+      ${bases.map(b => { const fila = cols.map(c => anios.find(x => x.base === b && x.anio === c)?.n ?? '');
+        return `<tr><td>${esc(b)}</td>${fila.map(n => `<td>${n}</td>`).join('')}<td><b>${fila.reduce((a, n) => a + (+n || 0), 0)}</b></td></tr>`; }).join('')}
+    </table></div></div></div>
+    <p class="nota" style="margin-top:12px">Para un cálculo puntual (por ejemplo, cuántos HCV son F4), usá los Filtros dentro de cada base.</p>`;
+}
+$('#stats-cerrar').onclick = () => $('#dlg-stats').close();
+
+/* ---------- Exportación anonimizada ---------- */
+const ES_IDENT = c => COLS_ID.includes(c) || COLS_NOMBRE.includes(c) || /tel[eé]fono|celular|^tel$|mail|domicilio|direcci|dni|m[eé]dico tratante|iniciales/i.test(c);
+const ES_FN = c => /nacimiento|^fn$/i.test(c);
+$('#btn-anonimo').onclick = () => {
+  const cols = [...new Set(estado.hojas.flatMap(h => h.columnas))];
+  $('#anon-cols').innerHTML = cols.map((c, i) => `<label class="anon-col"><input type="checkbox" data-c="${i}" ${ES_IDENT(c) || ES_FN(c) ? 'checked' : ''}>
+    ${esc(c)} ${ES_FN(c) ? '<small class="nota">(se reemplaza por EDAD)</small>' : ES_IDENT(c) ? '<small class="nota">(identifica al paciente)</small>' : ''}</label>`).join('');
+  estado.anonCols = cols; $('#dlg-anon').showModal();
+};
+$('#anon-cancelar').onclick = () => $('#dlg-anon').close();
+$('#anon-ok').onclick = async () => {
+  const quitar = new Set([...document.querySelectorAll('#anon-cols input:checked')].map(i => estado.anonCols[i.dataset.c]));
+  $('#dlg-anon').close(); aviso('Preparando el Excel anonimizado…');
+  const base = estado.bases.find(b => b.id === estado.baseId);
+  const libro = XLSX.utils.book_new(); const codigos = new Map(); const usados = new Set();
+  const edad = v => { const m = String(v || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (!m) return '';
+    const n = new Date(+m[3], +m[2] - 1, +m[1]), hoy = new Date(); let e = hoy.getFullYear() - n.getFullYear();
+    if (hoy < new Date(hoy.getFullYear(), n.getMonth(), n.getDate())) e--; return e >= 0 && e < 120 ? String(e) : ''; };
+  for (const h of estado.hojas) {
+    const filas = [];
+    for (let d = 0; ; d += 1000) {
+      const { data, error } = await sb.from('filas').select('datos').eq('hoja_id', h.id).order('orden').range(d, d + 999);
+      if (error) return fallo(error, 'No se pudo exportar'); filas.push(...data); if (data.length < 1000) break;
+    }
+    const colId = h.columnas.find(c => COLS_ID.includes(c)), colsNom = h.columnas.filter(c => COLS_NOMBRE.includes(c));
+    const colFN = h.columnas.find(ES_FN);
+    const cols = h.columnas.filter(c => !quitar.has(c));
+    const encabezado = ['ID PACIENTE', ...(colFN && quitar.has(colFN) && !h.columnas.includes('EDAD') && !h.columnas.includes('edad') ? ['EDAD'] : []), ...cols];
+    const aoa = [encabezado, ...filas.map(({ datos }) => {
+      const k = claveHC(colId ? datos[colId] : '') || normalizar(colsNom.map(c => datos[c]).join('')).replace(/[^a-z]/g, '') || Math.random().toString(36);
+      if (!codigos.has(k)) codigos.set(k, 'P' + String(codigos.size + 1).padStart(4, '0'));
+      return [codigos.get(k), ...(encabezado[1] === 'EDAD' ? [edad(datos[colFN])] : []), ...cols.map(c => datos[c] ?? '')];
+    })];
+    let nombre = h.nombre.replace(/[\\\/\?\*\[\]:]/g, ' ').slice(0, 31) || 'Hoja';
+    let i = 2; while (usados.has(nombre)) nombre = nombre.slice(0, 27) + ' (' + i++ + ')'; usados.add(nombre);
+    XLSX.utils.book_append_sheet(libro, XLSX.utils.aoa_to_sheet(aoa), nombre);
+  }
+  XLSX.writeFile(libro, `${base.nombre} ANONIMIZADO ${new Date().toISOString().slice(0, 10)}.xlsx`);
 };
 
 iniciar();
