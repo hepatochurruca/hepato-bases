@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   Bases de Hepatología — web app
-  Versión: 2026-10-13 00:30 ARG
+  Versión: 2026-10-13 01:20 ARG
   Requiere: supabase_bases_hepato.sql ejecutado en el proyecto Supabase.
   Configurar CONFIG (más abajo) con la URL y la anon key del proyecto.
 -->
@@ -228,6 +228,13 @@ dialog::backdrop{background:rgba(31,43,51,.45)}
 .resultado-ok li.ya{background:var(--cabecera-tabla);color:var(--tinta-2);font-weight:400}
 @media (max-width:560px){.grilla{grid-template-columns:1fr}}
 
+
+.pap-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--linea-2)}
+.pap-item:last-child{border-bottom:0}
+.pap-item .info{flex:1;min-width:0}
+.pap-item .info b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pap-item .info small{color:var(--tinta-3)}
+.pap-vacia{padding:24px 0;text-align:center;color:var(--tinta-3)}
 @media (max-width:820px){
   header.barra .marca-hospital{display:none}
   #vista-app{grid-template-columns:1fr}
@@ -403,6 +410,16 @@ dialog::backdrop{background:rgba(31,43,51,.45)}
   </div>
 </dialog>
 
+<!-- ============ PAPELERA ============ -->
+<dialog id="dlg-papelera" class="dlg-ancho">
+  <div class="dlg-cab"><h3>Papelera</h3></div>
+  <div class="dlg-cuerpo">
+    <p class="nota">Lo eliminado queda acá 30 días y después se borra solo.</p>
+    <div id="papelera-lista"></div>
+  </div>
+  <div class="dlg-pie"><button class="btn" id="papelera-cerrar">Cerrar</button></div>
+</dialog>
+
 <div id="aviso" hidden role="status"></div>
 
 <script>
@@ -505,7 +522,7 @@ function reiniciarInactividad() {
 
 /* ---------------- Bases ---------------- */
 async function cargarBases(seleccionar) {
-  const { data, error } = await sb.from('bases').select('id,nombre,origen,orden,grupo,hojas(count)').order('nombre');
+  const { data, error } = await sb.from('bases').select('id,nombre,origen,orden,grupo,hojas(count)').is('eliminado', null).is('hojas.eliminado', null).order('nombre');
   if (error) return fallo(error, 'No se pudieron cargar las bases');
   estado.bases = data;
   pintarBases();
@@ -555,7 +572,7 @@ async function abrirBase(id) {
   $('#titulo-base').textContent = base?.nombre || '';
   $('#grupo-base').value = base?.grupo || '';
   pintarBases();
-  const { data, error } = await sb.from('hojas').select('id,nombre,columnas,orden').eq('base_id', id).order('orden');
+  const { data, error } = await sb.from('hojas').select('id,nombre,columnas,orden').eq('base_id', id).is('eliminado', null).order('orden');
   if (error) return fallo(error, 'No se pudieron cargar las pestañas');
   estado.hojas = data;
   const hojaId = data.some(h => h.id === estado.hojaId) ? estado.hojaId : data[0]?.id;
@@ -580,17 +597,23 @@ $('#grupo-base').onchange = async e => {
 };
 $('#btn-eliminar-base').onclick = async () => {
   const b = estado.bases.find(x => x.id === estado.baseId);
+  const ok1 = await preguntar({
+    titulo: '¿Eliminar esta base?',
+    texto: `"${b.nombre}" va a ir a la papelera con todas sus pestañas y filas. Se puede restaurar durante 30 días desde ⚙ → Papelera.`,
+    ok: 'Sí, continuar', peligro: true
+  });
+  if (!ok1) return;
   const n = await preguntar({
-    titulo: 'Eliminar base',
-    texto: `Se borran "${b.nombre}" y todas sus pestañas y filas. Para confirmar, escribí el nombre exacto.`,
-    valor: '', ok: 'Eliminar', peligro: true
+    titulo: 'Confirmá de nuevo',
+    texto: `Para mandar "${b.nombre}" a la papelera, escribí el nombre exacto de la base.`,
+    valor: '', ok: 'Mandar a la papelera', peligro: true
   });
   if (n === null) return;
   if (n !== b.nombre) return aviso('El nombre no coincide. No se eliminó nada.', true);
-  const { error } = await sb.from('bases').delete().eq('id', b.id);
+  const { error } = await sb.from('bases').update({ eliminado: new Date().toISOString() }).eq('id', b.id);
   if (error) return fallo(error, 'No se pudo eliminar');
   estado.baseId = null; estado.hojaId = null;
-  aviso('Base eliminada'); cargarBases();
+  aviso('Base enviada a la papelera'); pac.hojas = []; cargarBases();
 };
 
 /* ---------------- Hojas (pestañas) ---------------- */
@@ -647,15 +670,17 @@ async function nuevaHoja() {
 }
 async function eliminarHoja() {
   const h = hojaActual();
-  const ok = await preguntar({ titulo: 'Eliminar pestaña', texto: `Se borra "${h.nombre}" con sus ${estado.filas.length} filas.`, ok: 'Eliminar', peligro: true });
-  if (!ok) return;
-  const { error } = await sb.from('hojas').delete().eq('id', h.id);
+  const ok1 = await preguntar({ titulo: '¿Eliminar esta pestaña?', texto: `"${h.nombre}" (${estado.filas.length} filas) va a ir a la papelera. Se puede restaurar durante 30 días.`, ok: 'Sí, continuar', peligro: true });
+  if (!ok1) return;
+  const ok2 = await preguntar({ titulo: 'Confirmá de nuevo', texto: `¿Seguro que querés mandar "${h.nombre}" a la papelera?`, ok: 'Mandar a la papelera', peligro: true });
+  if (!ok2) return;
+  const { error } = await sb.from('hojas').update({ eliminado: new Date().toISOString() }).eq('id', h.id);
   if (error) return fallo(error, 'No se pudo eliminar');
   estado.hojas = estado.hojas.filter(x => x.id !== h.id);
-  aviso('Pestaña eliminada'); abrirHoja(estado.hojas[0]?.id); cargarConteos();
+  aviso('Pestaña enviada a la papelera'); pac.hojas = []; abrirHoja(estado.hojas[0]?.id); cargarConteos();
 }
 async function cargarConteos() {
-  const { data } = await sb.from('bases').select('id,nombre,origen,orden,grupo,hojas(count)').order('nombre');
+  const { data } = await sb.from('bases').select('id,nombre,origen,orden,grupo,hojas(count)').is('eliminado', null).is('hojas.eliminado', null).order('nombre');
   if (data) { estado.bases = data; pintarBases(); }
 }
 
@@ -774,8 +799,13 @@ $('#btn-nueva-fila').onclick = async () => {
   if (td) editarCelda(td);
 };
 async function eliminarFila(id) {
-  const ok = await preguntar({ titulo: 'Eliminar fila', texto: 'La fila queda guardada en el historial por si hay que recuperarla.', ok: 'Eliminar', peligro: true });
-  if (!ok) return;
+  const f = estado.filas.find(r => r.id === id);
+  const cols = hojaActual()?.columnas || [];
+  const resumen = cols.slice(0, 3).map(c => f?.datos[c]).filter(Boolean).join(' · ') || 'esta fila';
+  const ok1 = await preguntar({ titulo: '¿Eliminar esta fila?', texto: `${resumen}`, ok: 'Sí, continuar', peligro: true });
+  if (!ok1) return;
+  const ok2 = await preguntar({ titulo: 'Confirmá de nuevo', texto: '¿Seguro? La fila se borra (queda registrada en el historial y en los backups).', ok: 'Eliminar fila', peligro: true });
+  if (!ok2) return;
   const { error } = await sb.from('filas').delete().eq('id', id);
   if (error) return fallo(error, 'No se pudo eliminar la fila');
   estado.filas = estado.filas.filter(r => r.id !== id);
@@ -823,8 +853,10 @@ async function renombrarColumna(col) {
   pintarTabla(); aviso('Columna renombrada');
 }
 async function eliminarColumna(col) {
-  const ok = await preguntar({ titulo: 'Eliminar columna', texto: `Se borra "${col}" y su contenido en todas las filas de esta pestaña.`, ok: 'Eliminar', peligro: true });
-  if (!ok) return;
+  const ok1 = await preguntar({ titulo: '¿Eliminar esta columna?', texto: `Se borra "${col}" y su contenido en todas las filas de esta pestaña.`, ok: 'Sí, continuar', peligro: true });
+  if (!ok1) return;
+  const ok2 = await preguntar({ titulo: 'Confirmá de nuevo', texto: `¿Seguro que querés borrar la columna "${col}"? Los valores quedan en el historial y en los backups.`, ok: 'Eliminar columna', peligro: true });
+  if (!ok2) return;
   const h = hojaActual();
   const { error } = await sb.rpc('eliminar_columna', { p_hoja: h.id, p_columna: col });
   if (error) return fallo(error, 'No se pudo eliminar la columna');
@@ -1103,7 +1135,7 @@ async function abrirPaciente() {
   $('#pac-guardar').disabled = false;
   $('#dlg-paciente').showModal(); $('#pac-apellido').focus();
   if (!pac.hojas.length) {
-    const { data, error } = await sb.from('hojas').select('id,nombre,base_id,orden,bases(nombre,grupo)').order('orden');
+    const { data, error } = await sb.from('hojas').select('id,nombre,base_id,orden,bases!inner(nombre,grupo,eliminado)').is('eliminado', null).is('bases.eliminado', null).order('orden');
     if (error) return fallo(error, 'No se pudieron cargar las bases');
     const cuenta = {}; data.forEach(x => cuenta[x.base_id] = (cuenta[x.base_id] || 0) + 1);
     pac.hojas = data.map(x => ({ id: x.id, hoja: x.nombre, base: x.bases.nombre, grupo: x.bases.grupo, nHojas: cuenta[x.base_id] }))
@@ -1194,9 +1226,54 @@ $('#btn-ajustes').onclick = e => {
   abrirMenu(e.currentTarget, [
     [m('auto', 'Tema automático (según el equipo)'), () => { aplicarTema('auto'); aviso('Tema automático'); }],
     [m('light', 'Tema claro'), () => { aplicarTema('light'); aviso('Tema claro'); }],
-    [m('dark', 'Tema oscuro'), () => { aplicarTema('dark'); aviso('Tema oscuro'); }]
+    [m('dark', 'Tema oscuro'), () => { aplicarTema('dark'); aviso('Tema oscuro'); }],
+    ['🗑  Papelera', abrirPapelera]
   ]);
   const menu = $('#menu-flotante'); if (menu) { menu.style.left = 'auto'; menu.style.right = '16px'; }
+};
+
+/* ---------------- Papelera ---------------- */
+async function abrirPapelera() {
+  $('#dlg-papelera').showModal();
+  $('#papelera-lista').innerHTML = '<p class="nota">Cargando…</p>';
+  const [bs, hs] = await Promise.all([
+    sb.from('bases').select('id,nombre,eliminado').not('eliminado', 'is', null).order('eliminado', { ascending: false }),
+    sb.from('hojas').select('id,nombre,eliminado,bases!inner(nombre,eliminado)').not('eliminado', 'is', null).is('bases.eliminado', null).order('eliminado', { ascending: false })
+  ]);
+  if (bs.error || hs.error) return fallo(bs.error || hs.error, 'No se pudo abrir la papelera');
+  const dias = f => Math.max(0, 30 - Math.floor((Date.now() - new Date(f)) / 86400000));
+  const fecha = f => new Date(f).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+  const items = [
+    ...bs.data.map(x => ({ tipo: 'base', id: x.id, titulo: x.nombre, sub: 'Base completa', f: x.eliminado })),
+    ...hs.data.map(x => ({ tipo: 'hoja', id: x.id, titulo: x.nombre, sub: 'Pestaña de ' + x.bases.nombre, f: x.eliminado }))
+  ].sort((a, b) => b.f.localeCompare(a.f));
+  $('#papelera-lista').innerHTML = items.length ? items.map(x => `
+    <div class="pap-item">
+      <div class="info"><b>${esc(x.titulo)}</b><small>${esc(x.sub)} · eliminada ${fecha(x.f)} · se borra en ${dias(x.f)} días</small></div>
+      <button class="btn chico" data-restaurar="${x.tipo}:${x.id}">Restaurar</button>
+      <button class="btn chico peligro" data-vaciar="${x.tipo}:${x.id}" data-nombre="${esc(x.titulo)}">Borrar definitivo</button>
+    </div>`).join('') : '<div class="pap-vacia">La papelera está vacía.</div>';
+}
+$('#papelera-cerrar').onclick = () => $('#dlg-papelera').close();
+$('#papelera-lista').onclick = async e => {
+  const r = e.target.closest('[data-restaurar]'), v = e.target.closest('[data-vaciar]');
+  if (r) {
+    const [tipo, id] = r.dataset.restaurar.split(':');
+    const { error } = await sb.from(tipo === 'base' ? 'bases' : 'hojas').update({ eliminado: null }).eq('id', id);
+    if (error) return fallo(error, 'No se pudo restaurar');
+    aviso('Restaurado'); abrirPapelera(); pac.hojas = []; cargarBases(tipo === 'base' ? id : estado.baseId);
+  }
+  if (v) {
+    const [tipo, id] = v.dataset.vaciar.split(':');
+    $('#dlg-papelera').close();
+    const ok1 = await preguntar({ titulo: '¿Borrar definitivamente?', texto: `"${v.dataset.nombre}" se elimina para siempre de la app. Solo va a quedar en los backups del Drive.`, ok: 'Sí, continuar', peligro: true });
+    const ok2 = ok1 && await preguntar({ titulo: 'Confirmá de nuevo', texto: 'Esta acción no se puede deshacer desde la app. ¿Seguro?', ok: 'Borrar definitivo', peligro: true });
+    if (ok2) {
+      const { error } = await sb.rpc('vaciar_papelera', { p_tipo: tipo, p_id: id });
+      if (error) fallo(error, 'No se pudo borrar'); else aviso('Borrado definitivamente');
+    }
+    abrirPapelera();
+  }
 };
 
 iniciar();
