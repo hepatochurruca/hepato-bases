@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   Bases de Hepatología — web app
-  Versión: 2026-10-12 21:20 ARG
+  Versión: 2026-10-12 21:50 ARG
   Requiere: supabase_bases_hepato.sql ejecutado en el proyecto Supabase.
   Configurar CONFIG (más abajo) con la URL y la anon key del proyecto.
 -->
@@ -91,6 +91,18 @@ aside.lateral{border-right:1px solid var(--linea);background:var(--blanco);overf
 .base-item.activa{background:var(--verde-claro);border-left-color:var(--verde);font-weight:600}
 .base-item small{color:var(--tinta-3);font-weight:400}
 .vacio-lateral{padding:8px 16px;color:var(--tinta-3)}
+.grupo-titulo{display:flex;align-items:center;justify-content:space-between;width:100%;border:0;background:none;cursor:pointer;padding:10px 16px 6px;font:600 14px/1.2 var(--cond);color:var(--tinta);text-align:left}
+.grupo-titulo::before{content:"";width:8px;height:8px;border-radius:50%;margin-right:8px;flex:none}
+.grupo-titulo[data-g=gastro]::before{background:var(--ambar)}
+.grupo-titulo[data-g=hepato]::before{background:var(--celeste)}
+.grupo-titulo[data-g=sin]::before{background:var(--tinta-3)}
+.grupo-titulo span{flex:1}
+.grupo-titulo small{color:var(--tinta-3);font:400 12px var(--sans);margin-left:6px}
+.grupo-titulo .flecha{flex:none;color:var(--tinta-3);font-size:11px;margin-left:8px;transition:transform .15s}
+.grupo-titulo[aria-expanded=false] .flecha{transform:rotate(-90deg)}
+.grupo-lista{margin-bottom:6px}
+.base-item{padding-left:32px}
+.sel-grupo{border:1px solid var(--linea);border-radius:var(--radio);background:var(--blanco);padding:3px 6px;font-size:13px}
 
 main{display:flex;flex-direction:column;min-width:0;min-height:0}
 .cabecera-base{display:flex;align-items:center;gap:8px;padding:14px 18px 0}
@@ -217,6 +229,10 @@ dialog::backdrop{background:rgba(31,43,51,.45)}
     <div id="panel-base" hidden style="display:flex;flex-direction:column;flex:1;min-height:0">
       <div class="cabecera-base">
         <h2 id="titulo-base"></h2>
+        <select class="sel-grupo" id="grupo-base" aria-label="Grupo de la base">
+          <option value="gastro">Gastroenterología</option>
+          <option value="hepato">Hepatología</option>
+        </select>
         <button class="btn chico" id="btn-exportar">Descargar Excel</button>
         <button class="btn chico" id="btn-renombrar-base">Renombrar</button>
         <button class="btn chico peligro" id="btn-eliminar-base">Eliminar base</button>
@@ -241,6 +257,11 @@ dialog::backdrop{background:rgba(31,43,51,.45)}
     <label class="campo"><span>Archivo (.xlsx, .xls o .csv)</span><input type="file" id="imp-archivo" accept=".xlsx,.xls,.csv"></label>
     <div id="imp-detalle" hidden>
       <label class="campo"><span>Nombre de la base</span><input type="text" id="imp-nombre"></label>
+      <label class="campo"><span>Grupo</span>
+        <select id="imp-grupo" class="sel-grupo" style="width:100%;padding:8px 10px">
+          <option value="gastro">Gastroenterología</option>
+          <option value="hepato">Hepatología</option>
+        </select></label>
       <p class="nota">Pestañas encontradas. Destildá las que no quieras importar.</p>
       <div id="imp-hojas"></div>
       <p class="nota" id="imp-aviso"></p>
@@ -366,7 +387,7 @@ function reiniciarInactividad() {
 
 /* ---------------- Bases ---------------- */
 async function cargarBases(seleccionar) {
-  const { data, error } = await sb.from('bases').select('id,nombre,origen,orden,hojas(count)').order('orden').order('nombre');
+  const { data, error } = await sb.from('bases').select('id,nombre,origen,orden,grupo,hojas(count)').or('grupo.is.null,grupo.neq.excluida').order('nombre');
   if (error) return fallo(error, 'No se pudieron cargar las bases');
   estado.bases = data;
   pintarBases();
@@ -374,19 +395,37 @@ async function cargarBases(seleccionar) {
   $('#sin-bases').hidden = hay;
   $('#panel-base').hidden = !hay;
   if (!hay) return;
-  const id = seleccionar || (data.some(b => b.id === estado.baseId) ? estado.baseId : data[0].id);
+  const primera = [...data].sort((a, b) => ordenGrupo(a.grupo) - ordenGrupo(b.grupo))[0];
+  const id = seleccionar || (data.some(b => b.id === estado.baseId) ? estado.baseId : primera.id);
   await abrirBase(id);
 }
+const GRUPOS = [['gastro', 'Gastroenterología'], ['hepato', 'Hepatología'], ['sin', 'Sin grupo']];
+const ordenGrupo = g => ({ gastro: 0, hepato: 1 })[g] ?? 2;
+let plegados; try { plegados = new Set(JSON.parse(sessionStorage.getItem('plegados') || '[]')); } catch { plegados = new Set(); }
 function pintarBases() {
   const f = normalizar($('#buscar-base').value);
   const lista = estado.bases.filter(b => normalizar(b.nombre).includes(f));
-  $('#lista-bases').innerHTML = lista.length ? lista.map(b => `
-    <button class="base-item ${b.id === estado.baseId ? 'activa' : ''}" data-id="${b.id}">
-      <span>${esc(b.nombre)}</span><small>${b.hojas?.[0]?.count ?? 0}</small>
-    </button>`).join('') : '<div class="vacio-lateral">Sin resultados</div>';
+  if (!lista.length) { $('#lista-bases').innerHTML = '<div class="vacio-lateral">Sin resultados</div>'; return; }
+  $('#lista-bases').innerHTML = GRUPOS.map(([g, titulo]) => {
+    const items = lista.filter(b => (b.grupo || 'sin') === g)
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
+    if (!items.length) return '';
+    const abierto = f || !plegados.has(g);
+    return `<button class="grupo-titulo" data-g="${g}" aria-expanded="${abierto}">
+        <span>${titulo}<small>${items.length}</small></span><span class="flecha">▾</span></button>
+      <div class="grupo-lista" ${abierto ? '' : 'hidden'}>${items.map(b => `
+        <button class="base-item ${b.id === estado.baseId ? 'activa' : ''}" data-id="${b.id}">
+          <span>${esc(b.nombre)}</span><small>${b.hojas?.[0]?.count ?? 0}</small>
+        </button>`).join('')}</div>`;
+  }).join('');
 }
 $('#buscar-base').oninput = pintarBases;
 $('#lista-bases').onclick = e => {
+  const t = e.target.closest('.grupo-titulo');
+  if (t) {
+    const g = t.dataset.g; plegados.has(g) ? plegados.delete(g) : plegados.add(g);
+    try { sessionStorage.setItem('plegados', JSON.stringify([...plegados])); } catch {} return pintarBases();
+  }
   const b = e.target.closest('.base-item'); if (!b) return;
   abrirBase(b.dataset.id); $('#lateral').classList.remove('abierta');
 };
@@ -396,6 +435,7 @@ async function abrirBase(id) {
   estado.baseId = id;
   const base = estado.bases.find(b => b.id === id);
   $('#titulo-base').textContent = base?.nombre || '';
+  $('#grupo-base').value = base?.grupo || 'gastro';
   pintarBases();
   const { data, error } = await sb.from('hojas').select('id,nombre,columnas,orden').eq('base_id', id).order('orden');
   if (error) return fallo(error, 'No se pudieron cargar las pestañas');
@@ -411,6 +451,13 @@ $('#btn-renombrar-base').onclick = async () => {
   const { error } = await sb.from('bases').update({ nombre: n }).eq('id', b.id);
   if (error) return fallo(error, 'No se pudo renombrar');
   aviso('Base renombrada'); cargarBases(b.id);
+};
+$('#grupo-base').onchange = async e => {
+  const b = estado.bases.find(x => x.id === estado.baseId);
+  const { error } = await sb.from('bases').update({ grupo: e.target.value }).eq('id', b.id);
+  if (error) { e.target.value = b.grupo || 'gastro'; return fallo(error, 'No se pudo cambiar el grupo'); }
+  b.grupo = e.target.value; plegados.delete(b.grupo); pintarBases();
+  aviso('Base movida a ' + (b.grupo === 'gastro' ? 'Gastroenterología' : 'Hepatología'));
 };
 $('#btn-eliminar-base').onclick = async () => {
   const b = estado.bases.find(x => x.id === estado.baseId);
@@ -489,7 +536,7 @@ async function eliminarHoja() {
   aviso('Pestaña eliminada'); abrirHoja(estado.hojas[0]?.id); cargarConteos();
 }
 async function cargarConteos() {
-  const { data } = await sb.from('bases').select('id,nombre,origen,orden,hojas(count)').order('orden').order('nombre');
+  const { data } = await sb.from('bases').select('id,nombre,origen,orden,grupo,hojas(count)').or('grupo.is.null,grupo.neq.excluida').order('nombre');
   if (data) { estado.bases = data; pintarBases(); }
 }
 
@@ -781,7 +828,7 @@ $('#imp-confirmar').onclick = async () => {
   let baseId = null;
   try {
     const orden = Math.max(-1, ...estado.bases.map(b => b.orden)) + 1;
-    const { data: base, error: e1 } = await sb.from('bases').insert({ nombre, origen: importacion.archivo, orden }).select().single();
+    const { data: base, error: e1 } = await sb.from('bases').insert({ nombre, origen: importacion.archivo, orden, grupo: $('#imp-grupo').value }).select().single();
     if (e1) throw e1;
     baseId = base.id;
     for (const [i, h] of elegidas.entries()) {
