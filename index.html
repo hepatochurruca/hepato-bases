@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   Bases de Hepatología — web app
-  Versión: 2026-10-13 09:40 ARG
+  Versión: 2026-10-13 09:50 ARG
   Requiere: supabase_bases_hepato.sql ejecutado en el proyecto Supabase.
   Configurar CONFIG (más abajo) con la URL y la anon key del proyecto.
 -->
@@ -670,9 +670,10 @@ $('#form-login').addEventListener('submit', async e => {
   });
   b.disabled = false;
   if (error) { $('#login-error').textContent = 'Correo o clave incorrectos.'; return; }
+  try { localStorage.setItem('ultimaActividad', String(Date.now())); } catch {}   // ingreso nuevo: arranca de cero
   mostrarApp(data.session);
 });
-$('#btn-salir').onclick = () => sb.auth.signOut();
+$('#btn-salir').onclick = () => { try { localStorage.removeItem('ultimaActividad'); } catch {} sb.auth.signOut(); };
 
 /* Inactividad: se guarda la hora de la última acción; se revisa cada minuto y al abrir la app */
 const minutosInactividad = () => { try { const v = localStorage.getItem('inactividad'); return v === null ? 10080 : +v; } catch { return 10080; } };
