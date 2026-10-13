@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   Bases de Hepatología — web app
-  Versión: 2026-10-13 04:00 ARG
+  Versión: 2026-10-13 09:40 ARG
   Requiere: supabase_bases_hepato.sql ejecutado en el proyecto Supabase.
   Configurar CONFIG (más abajo) con la URL y la anon key del proyecto.
 -->
@@ -602,7 +602,7 @@ const CONFIG = {
 };
 
 /* La sesión queda guardada en este navegador y se cierra sola tras el tiempo de
-   inactividad elegido en ⚙ (por defecto 8 horas). */
+   inactividad elegido en ⚙ (por defecto 7 días). */
 const sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
   auth: { storage: window.localStorage, persistSession: true, autoRefreshToken: true }
 });
@@ -675,7 +675,7 @@ $('#form-login').addEventListener('submit', async e => {
 $('#btn-salir').onclick = () => sb.auth.signOut();
 
 /* Inactividad: se guarda la hora de la última acción; se revisa cada minuto y al abrir la app */
-const minutosInactividad = () => { try { const v = localStorage.getItem('inactividad'); return v === null ? 480 : +v; } catch { return 480; } };
+const minutosInactividad = () => { try { const v = localStorage.getItem('inactividad'); return v === null ? 10080 : +v; } catch { return 10080; } };
 let ultimaMarca = 0;
 function reiniciarInactividad() {
   const ahora = Date.now(); if (ahora - ultimaMarca < 15000) return; ultimaMarca = ahora;
@@ -1427,6 +1427,8 @@ $('#btn-ajustes').onclick = e => {
     [(minutosInactividad() === 30 ? '✓ ' : '\u2003') + 'Cerrar sesión tras 30 min sin uso', () => fijarInactividad(30)],
     [(minutosInactividad() === 120 ? '✓ ' : '\u2003') + 'Cerrar sesión tras 2 horas sin uso', () => fijarInactividad(120)],
     [(minutosInactividad() === 480 ? '✓ ' : '\u2003') + 'Cerrar sesión tras 8 horas sin uso', () => fijarInactividad(480)],
+    [(minutosInactividad() === 1440 ? '✓ ' : '\u2003') + 'Cerrar sesión tras 1 día sin uso', () => fijarInactividad(1440)],
+    [(minutosInactividad() === 10080 ? '✓ ' : '\u2003') + 'Cerrar sesión tras 7 días sin uso', () => fijarInactividad(10080)],
     [(minutosInactividad() === 0 ? '✓ ' : '\u2003') + 'No cerrar sesión sola (solo con Salir)', () => fijarInactividad(0)]
   ]);
   const menu = $('#menu-flotante'); if (menu) { menu.style.left = 'auto'; menu.style.right = '16px'; }
@@ -1812,7 +1814,8 @@ $('#anon-ok').onclick = async () => {
 function fijarInactividad(min) {
   try { localStorage.setItem('inactividad', String(min)); } catch {}
   ultimaMarca = 0; reiniciarInactividad();
-  aviso(min ? `La sesión se cierra tras ${min >= 60 ? min / 60 + ' horas' : min + ' minutos'} sin uso` : 'La sesión solo se cierra con Salir');
+  const txt = min >= 1440 ? (min / 1440) + (min === 1440 ? ' día' : ' días') : min >= 60 ? (min / 60) + ' horas' : min + ' minutos';
+  aviso(min ? `La sesión se cierra tras ${txt} sin uso` : 'La sesión solo se cierra con Salir');
 }
 $('#btn-stats').onclick = abrirEstadisticas;
 
