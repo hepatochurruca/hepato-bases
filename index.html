@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   Bases de Hepatología — web app
-  Versión: 2026-10-13 03:50 ARG
+  Versión: 2026-10-13 04:00 ARG
   Requiere: supabase_bases_hepato.sql ejecutado en el proyecto Supabase.
   Configurar CONFIG (más abajo) con la URL y la anon key del proyecto.
 -->
@@ -266,7 +266,7 @@ header.barra .marca{flex:none}
 @media (max-width:620px){.cruce-sel{grid-template-columns:1fr}}
 
 /* Lista master con efecto vidrio */
-.base-master{display:flex!important;flex-direction:column;align-items:flex-start;gap:2px;width:calc(100% - 24px)!important;margin:12px 12px 8px;padding:12px 16px!important;
+.base-master{display:flex!important;flex-direction:column;align-items:flex-start;gap:2px;width:calc(100% - 24px)!important;margin:4px 12px 8px;padding:12px 16px!important;
   border-radius:18px;border:1px solid rgba(255,255,255,.4)!important;color:#fff;text-align:left;cursor:pointer;
   background:linear-gradient(135deg,rgba(44,106,152,.92) 0%,rgba(74,142,196,.82) 55%,rgba(121,182,224,.72) 100%)!important;
   -webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);
@@ -720,19 +720,21 @@ function pintarBases() {
   const lista = estado.bases.filter(b => b.nombre !== MASTER && normalizar(b.nombre).includes(f));
   const verMaster = master && (!f || normalizar(MASTER).includes(f));
   if (!lista.length && !verMaster) { $('#lista-bases').innerHTML = '<div class="vacio-lateral">Sin resultados</div>'; return; }
-  $('#lista-bases').innerHTML = (verMaster ? `
+  const tarjetaMaster = verMaster ? `
     <button class="base-item base-master ${master.id === estado.baseId ? 'activa' : ''}" data-id="${master.id}">
       <small class="master-etiqueta">Lista master</small>
       <b>${esc(master.nombre)}</b>
       <small class="master-sub">Las demás bases se nutren de esta</small>
-    </button>` : '') + GRUPOS.map(([g, titulo]) => {
+    </button>` : '';
+  $('#lista-bases').innerHTML = GRUPOS.map(([g, titulo]) => {
     const items = lista.filter(b => (b.grupo || 'sin') === g)
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
-    if (!items.length) return '';
+    const conMaster = g === 'hepato' && verMaster;
+    if (!items.length && !conMaster) return '';
     const abierto = f || !plegados.has(g);
     return `<button class="grupo-titulo" data-g="${g}" aria-expanded="${abierto}">
-        <span>${titulo}<small>${items.length}</small></span><span class="flecha">▾</span></button>
-      <div class="grupo-lista" ${abierto ? '' : 'hidden'}>${items.map(b => `
+        <span>${titulo}<small>${items.length + (conMaster ? 1 : 0)}</small></span><span class="flecha">▾</span></button>
+      <div class="grupo-lista" ${abierto ? '' : 'hidden'}>${conMaster ? tarjetaMaster : ''}${items.map(b => `
         <button class="base-item ${b.id === estado.baseId ? 'activa' : ''}" data-id="${b.id}">
           <span>${esc(b.nombre)}</span><small>${b.hojas?.[0]?.count ?? 0}</small>
         </button>`).join('')}</div>`;
