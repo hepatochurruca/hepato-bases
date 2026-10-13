@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   Bases de Hepatología — web app
-  Versión: 2026-10-12 23:20 ARG
+  Versión: 2026-10-12 23:55 ARG
   Requiere: supabase_bases_hepato.sql ejecutado en el proyecto Supabase.
   Configurar CONFIG (más abajo) con la URL y la anon key del proyecto.
 -->
@@ -187,8 +187,14 @@ dialog::backdrop{background:rgba(31,43,51,.45)}
 .chip:hover{border-color:var(--verde);color:var(--verde)}
 .destino{margin-top:2px;padding:12px 14px;background:var(--papel);border:1px solid var(--linea-2);border-radius:8px}
 .destino h4{margin:0 0 8px;font:600 13px/1.2 var(--sans);color:var(--tinta-2)}
-.destino .chips span{border-radius:999px;padding:4px 10px;font-size:12px;background:var(--verde-claro);color:var(--verde);font-weight:600}
-.destino .chips span.fija{background:#eef2f0;color:var(--tinta-2)}
+.destino .chips span{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:3px 4px 3px 10px;font-size:12px;font-weight:600}
+.destino .chips span.auto{background:var(--verde-claro);color:var(--verde)}
+.destino .chips span.manual{background:var(--ambar-claro);color:#6d561a;border:1px dashed var(--ambar)}
+.destino .chips span button{border:0;background:none;cursor:pointer;color:inherit;font-size:15px;line-height:1;padding:0 6px;border-radius:50%}
+.destino .chips span button:hover{background:rgba(0,0,0,.08)}
+.destino-pie{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.destino-pie select{flex:1;min-width:200px;padding:6px 8px}
+.destino-ayuda{margin:8px 0 0;font-size:12px}
 .resultado-ok{text-align:center;padding:10px 0}
 .resultado-ok h4{font:600 18px/1.3 var(--cond);margin:6px 0 10px}
 .resultado-ok ul{list-style:none;padding:0;margin:0 0 6px;display:inline-flex;flex-wrap:wrap;gap:6px;justify-content:center}
@@ -352,6 +358,11 @@ dialog::backdrop{background:rgba(31,43,51,.45)}
       <div class="destino completa">
         <h4>Se va a cargar en:</h4>
         <div class="chips" id="pac-destino"></div>
+        <div class="destino-pie">
+          <select id="pac-agregar" class="sel-grupo" aria-label="Agregar a otra base"></select>
+          <button type="button" class="btn chico" id="pac-restaurar" hidden>Restaurar sugeridas</button>
+        </div>
+        <p class="nota destino-ayuda">Se eligen solas según el diagnóstico. Tocá × para quitar una, o agregá otra con el selector.</p>
       </div>
       <label class="campo completa"><span>Comentarios</span><textarea id="pac-com" placeholder="Opcional"></textarea></label>
     </div>
@@ -1021,39 +1032,90 @@ $('#imp-confirmar').onclick = async () => {
 };
 
 /* ---------------- Alta de paciente nuevo ---------------- */
-/* Mismos criterios que usa la base de datos (privado.categorias) */
+/* Criterios de ubicación automática (iguales a los usados para armar las bases) */
 const L = 'A-Za-zÀ-ÿ';
 const pal = s => new RegExp(`(?<![${L}])(${s})(?![${L}])`, 'i');
 const REGLAS = [
-  ['Hepatitis autoinmune', t => pal('hai|hepatitis auto ?inmune').test(t)],
-  ['Colestasis autoinmune', t => new RegExp(`(?<![${L}])(cbp|cep|colangitis biliar|cirrosis biliar|colangitis esclerosante)`, 'i').test(t)],
-  ['DILI', t => pal('dili|t[oó]xica').test(t) || /hepatotox|toxicidad por f[aá]rmacos/i.test(t)],
-  ['Hepatitis B', t => pal('hbv|vhb|hepatitis b').test(t)],
-  ['MASLD', t => /esteatosis|esteatohepatitis|h[ií]gado graso|met ?\/ ?ald/i.test(t) || pal('nash|masld|mafld|nafld|malsd|hgna|metald').test(t)],
-  ['Alcohol', t => /alcohol|met ?\/ ?ald/i.test(t) || pal('oh|ald|metald|ash|enolista|enolismo|etilista|etilismo').test(t)],
-  ['HCV', t => pal('hcv|vhc|hepatitis c').test(t) && !/contacto/i.test(t)]
+  ['Hepatitis autoinmune', 'Pacientes', t => pal('hai|hepatitis auto ?inmune').test(t)],
+  ['Colestasis autoinmune', 'Pacientes', t => new RegExp(`(?<![${L}])(cbp|cep|colangitis biliar|cirrosis biliar|colangitis esclerosante)`, 'i').test(t)],
+  ['DILI', 'Pacientes', t => pal('dili|t[oó]xica').test(t) || /hepatotox|toxicidad por f[aá]rmacos/i.test(t)],
+  ['Hepatitis B', 'Pacientes', t => pal('hbv|vhb|hepatitis b').test(t)],
+  ['MASLD', 'Pacientes', t => /esteatosis|esteatohepatitis|h[ií]gado graso|met ?\/ ?ald/i.test(t) || pal('nash|masld|mafld|nafld|malsd|hgna|metald').test(t)],
+  ['Alcohol', 'Pacientes', t => /alcohol|met ?\/ ?ald/i.test(t) || pal('oh|ald|metald|ash|enolista|enolismo|etilista|etilismo').test(t)],
+  ['HCV', 'Hoja 1', t => pal('hcv|vhc|hepatitis c').test(t) && !/contacto/i.test(t)],
+  ['Trasplantados de hígado', 'Hoja 1', t => /trasplant|transplant/i.test(t) || pal('toh|tx hep[aá]tico|tx').test(t)],
+  ['HCC', 'Hoja 1', t => pal('hcc|chc').test(t) || /hepatocarcinoma|carcinoma hepatocelular/i.test(t)],
+  ['Hepatitis agudas', 'Hoja 1', t => /hepatitis aguda|falla hep[aá]tica aguda/i.test(t)],
+  ['Hepatitis OH', 'Hoja 1', t => /hepatitis (oh|alcoh)/i.test(t)]
 ];
-const destinos = t => REGLAS.filter(([, f]) => f(t)).map(([n]) => n);
+const GRUPO_TXT = { hepato: 'Hepatología', gastro: 'Gastroenterología' };
+let pac = { sexo: '', hojas: [], quitadas: new Set(), agregadas: new Set() };
 
-let pacSexo = '';
-function abrirPaciente() {
+const hojaPor = (base, hoja) => pac.hojas.find(x => x.base === base && x.hoja === hoja);
+const etiquetaHoja = x => x.nHojas > 1 ? `${x.base} · ${x.hoja}` : x.base;
+function sugeridas() {
+  const t = $('#pac-dx').value + ' · ' + $('#pac-com').value;
+  const ids = [];
+  const fija = hojaPor('Hepatología pacientes', 'Hoja 1'); if (fija) ids.push(fija.id);
+  REGLAS.forEach(([b, hj, f]) => { if (f(t)) { const x = hojaPor(b, hj); if (x) ids.push(x.id); } });
+  return ids;
+}
+function seleccionadas() {
+  const s = sugeridas().filter(id => !pac.quitadas.has(id));
+  pac.agregadas.forEach(id => { if (!s.includes(id)) s.push(id); });
+  return s;
+}
+
+async function abrirPaciente() {
   ['apellido','nombre','hc','fn','medico','dx','com'].forEach(id => $('#pac-' + id).value = '');
-  pacSexo = ''; pintarSexo();
+  pac.sexo = ''; pac.quitadas = new Set(); pac.agregadas = new Set(); pintarSexo();
   $('#pac-error').textContent = '';
   $('#pac-form').hidden = false; $('#pac-ok').hidden = true;
   $('#pac-guardar').hidden = false; $('#pac-otro').hidden = true; $('#pac-cancelar').textContent = 'Cancelar';
   $('#pac-guardar').disabled = false;
-  actualizarDestino();
   $('#dlg-paciente').showModal(); $('#pac-apellido').focus();
+  if (!pac.hojas.length) {
+    const { data, error } = await sb.from('hojas').select('id,nombre,base_id,orden,bases(nombre,grupo)').order('orden');
+    if (error) return fallo(error, 'No se pudieron cargar las bases');
+    const cuenta = {}; data.forEach(x => cuenta[x.base_id] = (cuenta[x.base_id] || 0) + 1);
+    pac.hojas = data.map(x => ({ id: x.id, hoja: x.nombre, base: x.bases.nombre, grupo: x.bases.grupo, nHojas: cuenta[x.base_id] }))
+      .sort((a, b) => a.base.localeCompare(b.base, 'es') || 0);
+  }
+  actualizarDestino();
 }
 function pintarSexo() {
-  document.querySelectorAll('#pac-sexo button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === pacSexo));
+  document.querySelectorAll('#pac-sexo button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === pac.sexo));
 }
 function actualizarDestino() {
-  const t = $('#pac-dx').value + ' · ' + $('#pac-com').value;
-  $('#pac-destino').innerHTML = '<span class="fija">Hepatología pacientes</span>' + destinos(t).map(d => `<span>${esc(d)}</span>`).join('');
+  const sug = new Set(sugeridas());
+  const sel = seleccionadas();
+  $('#pac-destino').innerHTML = sel.length ? sel.map(id => {
+    const x = pac.hojas.find(h => h.id === id); if (!x) return '';
+    return `<span class="${sug.has(id) ? 'auto' : 'manual'}">${esc(etiquetaHoja(x))}
+      <button type="button" data-quitar="${id}" aria-label="Quitar ${esc(etiquetaHoja(x))}">×</button></span>`;
+  }).join('') : '<em class="nota">Ninguna base elegida</em>';
+  // selector para agregar otras
+  const libres = pac.hojas.filter(x => !sel.includes(x.id));
+  const grupos = [['hepato', 'Hepatología'], ['gastro', 'Gastroenterología'], [null, 'Sin clasificar']];
+  $('#pac-agregar').innerHTML = '<option value="">+ Agregar a otra base…</option>' + grupos.map(([g, t]) => {
+    const ops = libres.filter(x => (x.grupo || null) === g);
+    return ops.length ? `<optgroup label="${t}">${ops.map(x => `<option value="${x.id}">${esc(etiquetaHoja(x))}</option>`).join('')}</optgroup>` : '';
+  }).join('');
+  const quitadasSug = [...pac.quitadas].filter(id => sug.has(id));
+  $('#pac-restaurar').hidden = !quitadasSug.length;
 }
-$('#pac-sexo').onclick = e => { const b = e.target.closest('button'); if (!b) return; pacSexo = pacSexo === b.dataset.v ? '' : b.dataset.v; pintarSexo(); };
+$('#pac-destino').onclick = e => {
+  const b = e.target.closest('[data-quitar]'); if (!b) return;
+  const id = b.dataset.quitar;
+  if (pac.agregadas.has(id)) pac.agregadas.delete(id); else pac.quitadas.add(id);
+  actualizarDestino();
+};
+$('#pac-agregar').onchange = e => {
+  const id = e.target.value; if (!id) return;
+  pac.quitadas.delete(id); pac.agregadas.add(id); actualizarDestino();
+};
+$('#pac-restaurar').onclick = () => { pac.quitadas.clear(); actualizarDestino(); };
+$('#pac-sexo').onclick = e => { const b = e.target.closest('button'); if (!b) return; pac.sexo = pac.sexo === b.dataset.v ? '' : b.dataset.v; pintarSexo(); };
 $('#pac-atajos').onclick = e => {
   const b = e.target.closest('.chip'); if (!b) return;
   const ta = $('#pac-dx'); const v = ta.value.trim();
@@ -1070,12 +1132,14 @@ $('#pac-guardar').onclick = async () => {
   const err = $('#pac-error'); err.textContent = '';
   if (!val('apellido') || !val('nombre')) return err.textContent = 'Completá apellido y nombre.';
   if (!/\d{3,}/.test(val('hc'))) return err.textContent = 'Completá la HC / OS con su número.';
+  const destinos = seleccionadas();
+  if (!destinos.length) return err.textContent = 'Elegí al menos una base.';
   const fnIso = val('fn');
   const fn = fnIso ? fnIso.split('-').reverse().join('/') : '';
   const b = $('#pac-guardar'); b.disabled = true; b.textContent = 'Guardando…';
-  const { data, error } = await sb.rpc('alta_paciente', { p: {
-    apellido: val('apellido'), nombre: val('nombre'), hc: val('hc'), fn, sexo: pacSexo,
-    diagnostico: val('dx'), comentarios: val('com'), medico: val('medico') } });
+  const { data, error } = await sb.rpc('alta_paciente_en', { p: {
+    apellido: val('apellido'), nombre: val('nombre'), hc: val('hc'), fn, sexo: pac.sexo,
+    diagnostico: val('dx'), comentarios: val('com'), medico: val('medico') }, destinos });
   b.textContent = 'Guardar paciente';
   if (error) { b.disabled = false; return err.textContent = 'No se pudo guardar: ' + error.message; }
   const ag = data.agregado || [], ya = data.ya_estaba || [];
@@ -1087,8 +1151,7 @@ $('#pac-guardar').onclick = async () => {
   $('#pac-form').hidden = true; $('#pac-ok').hidden = false;
   $('#pac-guardar').hidden = true; $('#pac-otro').hidden = false; $('#pac-cancelar').textContent = 'Cerrar';
   cargarConteos();
-  const actual = estado.bases.find(x => x.id === estado.baseId);
-  if (actual && ag.includes(actual.nombre)) abrirHoja(estado.hojaId);
+  if (destinos.includes(estado.hojaId)) abrirHoja(estado.hojaId);
 };
 
 iniciar();
