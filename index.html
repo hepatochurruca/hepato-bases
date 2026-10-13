@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   Bases de Hepatología — web app
-  Versión: 2026-10-12 21:50 ARG
+  Versión: 2026-10-12 22:05 ARG
   Requiere: supabase_bases_hepato.sql ejecutado en el proyecto Supabase.
   Configurar CONFIG (más abajo) con la URL y la anon key del proyecto.
 -->
@@ -232,6 +232,7 @@ dialog::backdrop{background:rgba(31,43,51,.45)}
         <select class="sel-grupo" id="grupo-base" aria-label="Grupo de la base">
           <option value="gastro">Gastroenterología</option>
           <option value="hepato">Hepatología</option>
+          <option value="">Sin clasificar</option>
         </select>
         <button class="btn chico" id="btn-exportar">Descargar Excel</button>
         <button class="btn chico" id="btn-renombrar-base">Renombrar</button>
@@ -387,7 +388,7 @@ function reiniciarInactividad() {
 
 /* ---------------- Bases ---------------- */
 async function cargarBases(seleccionar) {
-  const { data, error } = await sb.from('bases').select('id,nombre,origen,orden,grupo,hojas(count)').or('grupo.is.null,grupo.neq.excluida').order('nombre');
+  const { data, error } = await sb.from('bases').select('id,nombre,origen,orden,grupo,hojas(count)').order('nombre');
   if (error) return fallo(error, 'No se pudieron cargar las bases');
   estado.bases = data;
   pintarBases();
@@ -399,7 +400,7 @@ async function cargarBases(seleccionar) {
   const id = seleccionar || (data.some(b => b.id === estado.baseId) ? estado.baseId : primera.id);
   await abrirBase(id);
 }
-const GRUPOS = [['gastro', 'Gastroenterología'], ['hepato', 'Hepatología'], ['sin', 'Sin grupo']];
+const GRUPOS = [['gastro', 'Gastroenterología'], ['hepato', 'Hepatología'], ['sin', 'Sin clasificar']];
 const ordenGrupo = g => ({ gastro: 0, hepato: 1 })[g] ?? 2;
 let plegados; try { plegados = new Set(JSON.parse(sessionStorage.getItem('plegados') || '[]')); } catch { plegados = new Set(); }
 function pintarBases() {
@@ -435,7 +436,7 @@ async function abrirBase(id) {
   estado.baseId = id;
   const base = estado.bases.find(b => b.id === id);
   $('#titulo-base').textContent = base?.nombre || '';
-  $('#grupo-base').value = base?.grupo || 'gastro';
+  $('#grupo-base').value = base?.grupo || '';
   pintarBases();
   const { data, error } = await sb.from('hojas').select('id,nombre,columnas,orden').eq('base_id', id).order('orden');
   if (error) return fallo(error, 'No se pudieron cargar las pestañas');
@@ -454,10 +455,11 @@ $('#btn-renombrar-base').onclick = async () => {
 };
 $('#grupo-base').onchange = async e => {
   const b = estado.bases.find(x => x.id === estado.baseId);
-  const { error } = await sb.from('bases').update({ grupo: e.target.value }).eq('id', b.id);
-  if (error) { e.target.value = b.grupo || 'gastro'; return fallo(error, 'No se pudo cambiar el grupo'); }
-  b.grupo = e.target.value; plegados.delete(b.grupo); pintarBases();
-  aviso('Base movida a ' + (b.grupo === 'gastro' ? 'Gastroenterología' : 'Hepatología'));
+  const nuevo = e.target.value || null;
+  const { error } = await sb.from('bases').update({ grupo: nuevo }).eq('id', b.id);
+  if (error) { e.target.value = b.grupo || ''; return fallo(error, 'No se pudo cambiar el grupo'); }
+  b.grupo = nuevo; plegados.delete(nuevo || 'sin'); pintarBases();
+  aviso('Base movida a ' + ({ gastro: 'Gastroenterología', hepato: 'Hepatología' }[nuevo] || 'Sin clasificar'));
 };
 $('#btn-eliminar-base').onclick = async () => {
   const b = estado.bases.find(x => x.id === estado.baseId);
@@ -536,7 +538,7 @@ async function eliminarHoja() {
   aviso('Pestaña eliminada'); abrirHoja(estado.hojas[0]?.id); cargarConteos();
 }
 async function cargarConteos() {
-  const { data } = await sb.from('bases').select('id,nombre,origen,orden,grupo,hojas(count)').or('grupo.is.null,grupo.neq.excluida').order('nombre');
+  const { data } = await sb.from('bases').select('id,nombre,origen,orden,grupo,hojas(count)').order('nombre');
   if (data) { estado.bases = data; pintarBases(); }
 }
 
